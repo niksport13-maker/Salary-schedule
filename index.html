@@ -421,6 +421,9 @@
       <div class="auth-switch">
         Немає акаунта? <a id="authSwitchLink">Зареєструватись</a>
       </div>
+      <div class="auth-switch" style="margin-top:8px;">
+        <a id="forgotPasswordLink">Забув(ла) пароль?</a>
+      </div>
       <div style="text-align:center; color:var(--muted); font-size:12px; margin:16px 0;">— або —</div>
       <button class="auth-btn secondary" id="googleSignInBtn">Увійти через Google</button>
     </div>
@@ -1259,6 +1262,27 @@ document.getElementById('authSubmitBtn').addEventListener('click', async ()=>{
 
 document.getElementById('logoutBtn').addEventListener('click', async ()=>{
   await auth.signOut();
+});
+
+document.getElementById('forgotPasswordLink').addEventListener('click', async ()=>{
+  const email = document.getElementById('authEmail').value.trim();
+  if(!email){
+    setAuthErr('Спершу введи email у поле вище, потім натисни "Забув(ла) пароль?"');
+    return;
+  }
+  setAuthErr('');
+  try{
+    await auth.sendPasswordResetEmail(email);
+    setAuthErr('');
+    document.getElementById('authSub').textContent = 'Лист для скидання пароля надіслано на ' + email;
+    document.getElementById('authSub').style.color = 'var(--teal)';
+  }catch(e){
+    const map = {
+      'auth/invalid-email':'Некоректний email',
+      'auth/user-not-found':'Користувача з таким email не знайдено'
+    };
+    setAuthErr(map[e.code] || 'Помилка: ' + e.message);
+  }
 });
 
 document.getElementById('googleSignInBtn').addEventListener('click', async ()=>{
