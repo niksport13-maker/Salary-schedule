@@ -1189,6 +1189,22 @@ async function pushToCloud(){
   }catch(e){ console.error('Cloud sync failed', e); }
 }
 
+// Записує точну дату/час реального входу в акаунт (окремо від синхронізації даних).
+// Викликається один раз при кожному onAuthStateChanged-вході, не чекає на дебаунс.
+async function recordLogin(isNewUser){
+  if(!currentUser) return;
+  try{
+    const payload = {
+      email: currentUser.email,
+      lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    if(isNewUser){
+      payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    }
+    await db.collection('users').doc(currentUser.uid).set(payload, {merge:true});
+  }catch(e){ console.error('Login tracking failed', e); }
+}
+
 async function pullFromCloudOrMigrate(){
   const ref = db.collection('users').doc(currentUser.uid);
   const snap = await ref.get();
@@ -1208,9 +1224,12 @@ async function pullFromCloudOrMigrate(){
       localStorage.setItem('trener_extras', JSON.stringify(extras));
     }catch(e){}
     suppressNextSync = false;
+    // існуючий користувач — оновлюємо лише lastLoginAt, дату реєстрації не чіпаємо
+    await recordLogin(false);
   } else {
     // перший вхід цього акаунта — заливаємо те, що вже є локально (на цьому пристрої)
     await pushToCloud();
+    await recordLogin(true);
   }
 }
 
