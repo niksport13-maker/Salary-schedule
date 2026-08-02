@@ -1222,7 +1222,38 @@ async function recordLogin(isNewUser){
   }catch(e){ console.error('Login tracking failed', e); }
 }
 
+function resetLocalDataToEmpty(){
+  entries = [];
+  types = [...DEFAULT_TYPES];
+  templates = [];
+  skips = [];
+  extras = [];
+  try{
+    localStorage.setItem('trener_trainings', JSON.stringify(entries));
+    localStorage.setItem('trener_trainingTypes', JSON.stringify(types));
+    localStorage.setItem('trener_templates', JSON.stringify(templates));
+    localStorage.setItem('trener_skips', JSON.stringify(skips));
+    localStorage.setItem('trener_extras', JSON.stringify(extras));
+  }catch(e){}
+}
+
 async function pullFromCloudOrMigrate(){
+  // Локальні дані в цьому браузері не прив'язані до акаунта — якщо на цьому пристрої
+  // раніше заходив ІНШИЙ користувач, треба скинути кеш перед тим, як щось читати/писати,
+  // інакше можна показати чужі дані або (гірше) записати їх у хмару нового акаунта.
+  let lastUid = null;
+  try{ lastUid = localStorage.getItem('trener_lastUid'); }catch(e){}
+  const isDifferentAccount = lastUid && lastUid !== currentUser.uid;
+  if(isDifferentAccount){
+    suppressNextSync = true;
+    resetLocalDataToEmpty();
+    renderAll();
+    renderDateStrip();
+    renderScheduleList();
+    suppressNextSync = false;
+  }
+  try{ localStorage.setItem('trener_lastUid', currentUser.uid); }catch(e){}
+
   const ref = db.collection('users').doc(currentUser.uid);
   const snap = await ref.get();
   if(snap.exists){
@@ -1243,8 +1274,13 @@ async function pullFromCloudOrMigrate(){
     suppressNextSync = false;
     // існуючий користувач — оновлюємо лише lastLoginAt, дату реєстрації не чіпаємо
     await recordLogin(false);
+  } else if(isDifferentAccount){
+    // це справді новий акаунт на цьому пристрої, і локальні дані щойно скинуто —
+    // безпечно почати з чистого стану, а НЕ заливати в хмару чужі (попереднього акаунта) дані
+    await recordLogin(true);
   } else {
-    // перший вхід цього акаунта — заливаємо те, що вже є локально (на цьому пристрої)
+    // перший вхід на цьому пристрої взагалі (той самий/єдиний акаунт) — заливаємо
+    // те, що вже є локально
     await pushToCloud();
     await recordLogin(true);
   }
@@ -1297,7 +1333,11 @@ document.getElementById('authSubmitBtn').addEventListener('click', async ()=>{
 });
 
 document.getElementById('logoutBtn').addEventListener('click', async ()=>{
-  try{ localStorage.removeItem('trener_hasLoggedInBefore'); }catch(e){}
+  try{
+    localStorage.removeItem('trener_hasLoggedInBefore');
+    localStorage.removeItem('trener_lastUid');
+  }catch(e){}
+  resetLocalDataToEmpty();
   await auth.signOut();
 });
 
