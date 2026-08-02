@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Тренер · Зарплата</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -409,9 +410,6 @@
   }
   @keyframes splash-spin{ to{ transform:rotate(360deg); } }
 </style>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -701,6 +699,9 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script>
 const RATE_BASE = 550, RATE_PER_PERSON = 30, RATE_FULL_BONUS = 100, PREMIUM_SLOTS = 3;
 const DEFAULT_TYPES = ["Reshape Full","Reshape Lower","Reshape Upper","Reshape Core","Run Full","Run Lower","Run Upper","Run Core","Cycle","Hot ass","Power","Games","Perfect core","Bikini body","TRX","Stretching","Pilatass Basic","Pilatass Power","Bounce Power","Bounce Cardio","Bounce Barre","Reformass","Barre","Barre TRX","Barre Classic","Hatha Yoga","Yoga","Recovery","Stretch & Roll","Boxing","Full Body","Lower Body","Upper Body","Functional","Cycle UA","Dance Cycle","Climb","Power Yoga","Power Bare"];
@@ -1347,7 +1348,7 @@ auth.onAuthStateChanged(async (user)=>{
   if(user){
     currentUser = user;
     showAuthOverlay(false);
-    hideSplash();
+    hideSplash(); // локальні дані вже відрендерено через init(), не чекаємо хмару
     document.getElementById('accountEmail').textContent = user.email;
     await pullFromCloudOrMigrate();
     renderAll();
