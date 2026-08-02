@@ -395,6 +395,19 @@
     background:none; border:1px solid var(--line); color:var(--danger);
     border-radius:8px; padding:5px 10px; font-size:11.5px; font-weight:600; cursor:pointer;
   }
+  .splash-overlay{
+    position:fixed; inset:0; background:var(--bg); z-index:150;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+    transition:opacity .35s ease;
+  }
+  .splash-overlay.fade-out{ opacity:0; pointer-events:none; }
+  .splash-overlay .splash-logo{font-family:'Oswald',sans-serif; font-weight:700; font-size:22px; letter-spacing:.02em;}
+  .splash-overlay .splash-spinner{
+    width:34px; height:34px; border-radius:50%;
+    border:3px solid var(--line); border-top-color:var(--amber);
+    animation:splash-spin .8s linear infinite;
+  }
+  @keyframes splash-spin{ to{ transform:rotate(360deg); } }
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -402,9 +415,14 @@
 </head>
 <body>
 
+<div class="splash-overlay" id="splashOverlay">
+  <div class="splash-logo">Особистий Кабінет</div>
+  <div class="splash-spinner"></div>
+</div>
+
 <div class="auth-overlay" id="authOverlay">
   <div class="auth-box">
-    <h1>Тренер · Зарплата</h1>
+    <h1>Особистий Кабінет</h1>
     <div class="sub" id="authSub">Увійди у свій акаунт</div>
 
     <div id="authForm">
@@ -1320,10 +1338,16 @@ document.getElementById('googleSignInBtn').addEventListener('click', async ()=>{
   }
 });
 
+function hideSplash(){
+  const splash = document.getElementById('splashOverlay');
+  if(splash) splash.classList.add('fade-out');
+}
+
 auth.onAuthStateChanged(async (user)=>{
   if(user){
     currentUser = user;
     showAuthOverlay(false);
+    hideSplash();
     document.getElementById('accountEmail').textContent = user.email;
     await pullFromCloudOrMigrate();
     renderAll();
@@ -1336,6 +1360,7 @@ auth.onAuthStateChanged(async (user)=>{
     document.getElementById('authEmail').value = '';
     document.getElementById('authPassword').value = '';
     showAuthOverlay(true);
+    hideSplash();
   }
 });
 
