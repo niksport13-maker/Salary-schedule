@@ -1663,15 +1663,23 @@ function renderClubStats(list, total){
   }
 }
 
-function renderAll(){
+function renderEssential(){
   renderHeader();
   renderTodayStats();
   renderCurrentMonthStats();
+}
+
+function renderRest(){
   renderDateStrip();
   renderScheduleList();
   if(currentPeriod==='week') updateWeekPickerLabel();
   renderList();
   if(document.getElementById('statsView').style.display!=='none') renderStats();
+}
+
+function renderAll(){
+  renderEssential();
+  renderRest();
 }
 
 function showToast(msg){
@@ -2242,8 +2250,10 @@ const localRenderReady = new Promise(res=>{ resolveLocalRenderReady = res; });
   document.getElementById('monthPicker').value = selectedMonth;
   document.getElementById('statsMonthPicker').value = selectedStatsMonth;
   await loadData();
-  renderAll();
-  resolveLocalRenderReady();
+  renderEssential();
+  resolveLocalRenderReady(); // заставку можна ховати вже тут — швидка частина готова
+  // важчі обчислення (стрічка дат, повний список) донавантажуються без блокування заставки
+  setTimeout(renderRest, 0);
 })();
 </script>
 </body>
