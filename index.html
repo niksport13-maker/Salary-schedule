@@ -698,9 +698,6 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script>
 const RATE_BASE = 550, RATE_PER_PERSON = 30, RATE_FULL_BONUS = 100, PREMIUM_SLOTS = 3;
 const DEFAULT_TYPES = ["Reshape Full","Reshape Lower","Reshape Upper","Reshape Core","Run Full","Run Lower","Run Upper","Run Core","Cycle","Hot ass","Power","Games","Perfect core","Bikini body","TRX","Stretching","Pilatass Basic","Pilatass Power","Bounce Power","Bounce Cardio","Bounce Barre","Reformass","Barre","Barre TRX","Barre Classic","Hatha Yoga","Yoga","Recovery","Stretch & Roll","Boxing","Full Body","Lower Body","Upper Body","Functional","Cycle UA","Dance Cycle","Climb","Power Yoga","Power Bare"];
@@ -1171,6 +1168,10 @@ function saveSchedule(){
 }
 
 /* ===================== FIREBASE AUTH + CLOUD SYNC ===================== */
+/* Ця частина не виконується одразу — вона чекає, поки завантажаться Firebase-скрипти
+   (це може зайняти час на повільному інтернеті). Локальні дані та інтерфейс
+   показуються ще до того, як ця частина взагалі запуститься — див. startFirebase()
+   виклик внизу файлу, після CDN-скриптів. */
 
 const firebaseConfig = {
   apiKey: "AIzaSyDsqX7trzIa8zJKn7DoMw9B-V2a_ySZ5sA",
@@ -1182,10 +1183,8 @@ const firebaseConfig = {
   measurementId: "G-4NTFEDW51T"
 };
 
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-
+let auth = null;
+let db = null;
 let currentUser = null;
 let cloudSyncTimer = null;
 let suppressNextSync = false; // avoid re-writing data we just loaded FROM the cloud
@@ -1197,7 +1196,7 @@ function queueCloudSync(){
 }
 
 async function pushToCloud(){
-  if(!currentUser) return;
+  if(!currentUser || !db) return;
   try{
     await db.collection('users').doc(currentUser.uid).set({
       entries, types, templates, skips, extras,
@@ -1210,7 +1209,7 @@ async function pushToCloud(){
 // Записує точну дату/час реального входу в акаунт (окремо від синхронізації даних).
 // Викликається один раз при кожному onAuthStateChanged-вході, не чекає на дебаунс.
 async function recordLogin(isNewUser){
-  if(!currentUser) return;
+  if(!currentUser || !db) return;
   try{
     const payload = {
       email: currentUser.email,
@@ -1298,6 +1297,7 @@ document.getElementById('authSubmitBtn').addEventListener('click', async ()=>{
 });
 
 document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+  try{ localStorage.removeItem('trener_hasLoggedInBefore'); }catch(e){}
   await auth.signOut();
 });
 
@@ -1343,28 +1343,36 @@ function hideSplash(){
   if(splash) splash.classList.add('fade-out');
 }
 
-auth.onAuthStateChanged(async (user)=>{
-  if(user){
-    currentUser = user;
-    showAuthOverlay(false);
-    await localRenderReady; // чекаємо, поки локальні (кешовані) дані реально відмальовані на екрані
-    hideSplash();
-    document.getElementById('accountEmail').textContent = user.email;
-    await pullFromCloudOrMigrate(); // хмарне оновлення триває у фоні, без заставки
-    renderAll();
-    renderDateStrip();
-    renderScheduleList();
-  } else {
-    currentUser = null;
-    document.getElementById('authForm').style.display = 'block';
-    document.getElementById('authLoading').style.display = 'none';
-    document.getElementById('authEmail').value = '';
-    document.getElementById('authPassword').value = '';
-    showAuthOverlay(true);
-    await localRenderReady;
-    hideSplash();
-  }
-});
+// Викликається лише після того, як реально завантажився Firebase SDK (див. кінець файлу).
+function startFirebase(){
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.firestore();
+
+  auth.onAuthStateChanged(async (user)=>{
+    if(user){
+      currentUser = user;
+      showAuthOverlay(false);
+      try{ localStorage.setItem('trener_hasLoggedInBefore', '1'); }catch(e){}
+      await localRenderReady; // чекаємо, поки локальні (кешовані) дані реально відмальовані на екрані
+      hideSplash();
+      document.getElementById('accountEmail').textContent = user.email;
+      await pullFromCloudOrMigrate(); // хмарне оновлення триває у фоні, без заставки
+      renderAll();
+      renderDateStrip();
+      renderScheduleList();
+    } else {
+      currentUser = null;
+      document.getElementById('authForm').style.display = 'block';
+      document.getElementById('authLoading').style.display = 'none';
+      document.getElementById('authEmail').value = '';
+      document.getElementById('authPassword').value = '';
+      showAuthOverlay(true);
+      await localRenderReady;
+      hideSplash();
+    }
+  });
+}
 
 function renderHeader(){
   const today = new Date();
@@ -2254,7 +2262,25 @@ const localRenderReady = new Promise(res=>{ resolveLocalRenderReady = res; });
   resolveLocalRenderReady(); // заставку можна ховати вже тут — швидка частина готова
   // важчі обчислення (стрічка дат, повний список) донавантажуються без блокування заставки
   setTimeout(renderRest, 0);
+
+  // Якщо людина вже заходила на цьому пристрої раніше — не чекаємо, поки завантажиться
+  // Firebase з мережі (це і є повільна частина на LTE). Одразу показуємо застосунок
+  // із останніми відомими локальними даними; якщо сесія раптом недійсна, onAuthStateChanged
+  // (коли Firebase таки завантажиться) сам перекриє екран формою входу.
+  let hasLoggedInBefore = false;
+  try{ hasLoggedInBefore = localStorage.getItem('trener_hasLoggedInBefore') === '1'; }catch(e){}
+  if(hasLoggedInBefore){
+    showAuthOverlay(false);
+    hideSplash();
+  }
 })();
+</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script>
+  startFirebase();
 </script>
 </body>
 </html>
