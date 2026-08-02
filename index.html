@@ -574,8 +574,8 @@
 <div id="backupView" style="display:none;">
   <div class="section-title"><span>Резервна копія даних</span></div>
   <div class="empty" style="text-align:left; border-style:solid; margin-bottom:16px;">
-    Дані зберігаються локально у вашому браузері та синхронізуються з хмарою. Зробіть копію, щоб не втратити їх при очищенні кешу
-    або перенести на інший пристрій — просто завантажте копію там.
+    Дані автоматично зберігаються в хмарі й доступні на будь-якому пристрої після входу в акаунт. Резервна копія — додаткова
+    страховка на випадок втрати доступу до акаунта (наприклад, зміна email) або перенесення даних в інший акаунт.
   </div>
   <div class="sync-badge">
     <span>Акаунт: <b id="accountEmail">—</b></span>
@@ -1988,6 +1988,9 @@ document.querySelectorAll('.sub-tab').forEach(tab=>{
     const sub = tab.dataset.substat;
     document.getElementById('attendanceView').style.display = sub==='attendance' ? '' : 'none';
     document.getElementById('fillView').style.display = sub==='fill' ? '' : 'none';
+    // canvas розраховує свій розмір по батьківському елементу — якщо той щойно
+    // став видимим, треба перемалювати графік, інакше він лишається порожнім (0×0)
+    if(sub==='fill') renderDailyChart();
   });
 });
 
