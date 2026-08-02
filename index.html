@@ -409,9 +409,6 @@
   }
   @keyframes splash-spin{ to{ transform:rotate(360deg); } }
 </style>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -701,6 +698,9 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script>
 const RATE_BASE = 550, RATE_PER_PERSON = 30, RATE_FULL_BONUS = 100, PREMIUM_SLOTS = 3;
 const DEFAULT_TYPES = ["Reshape Full","Reshape Lower","Reshape Upper","Reshape Core","Run Full","Run Lower","Run Upper","Run Core","Cycle","Hot ass","Power","Games","Perfect core","Bikini body","TRX","Stretching","Pilatass Basic","Pilatass Power","Bounce Power","Bounce Cardio","Bounce Barre","Reformass","Barre","Barre TRX","Barre Classic","Hatha Yoga","Yoga","Recovery","Stretch & Roll","Boxing","Full Body","Lower Body","Upper Body","Functional","Cycle UA","Dance Cycle","Climb","Power Yoga","Power Bare"];
@@ -1347,9 +1347,10 @@ auth.onAuthStateChanged(async (user)=>{
   if(user){
     currentUser = user;
     showAuthOverlay(false);
+    await localRenderReady; // чекаємо, поки локальні (кешовані) дані реально відмальовані на екрані
     hideSplash();
     document.getElementById('accountEmail').textContent = user.email;
-    await pullFromCloudOrMigrate();
+    await pullFromCloudOrMigrate(); // хмарне оновлення триває у фоні, без заставки
     renderAll();
     renderDateStrip();
     renderScheduleList();
@@ -1360,6 +1361,7 @@ auth.onAuthStateChanged(async (user)=>{
     document.getElementById('authEmail').value = '';
     document.getElementById('authPassword').value = '';
     showAuthOverlay(true);
+    await localRenderReady;
     hideSplash();
   }
 });
@@ -1661,15 +1663,23 @@ function renderClubStats(list, total){
   }
 }
 
-function renderAll(){
+function renderEssential(){
   renderHeader();
   renderTodayStats();
   renderCurrentMonthStats();
+}
+
+function renderRest(){
   renderDateStrip();
   renderScheduleList();
   if(currentPeriod==='week') updateWeekPickerLabel();
   renderList();
   if(document.getElementById('statsView').style.display!=='none') renderStats();
+}
+
+function renderAll(){
+  renderEssential();
+  renderRest();
 }
 
 function showToast(msg){
@@ -2233,11 +2243,17 @@ document.getElementById('monthPicker').addEventListener('change', (e)=>{
   }
 });
 
+let resolveLocalRenderReady;
+const localRenderReady = new Promise(res=>{ resolveLocalRenderReady = res; });
+
 (async function init(){
   document.getElementById('monthPicker').value = selectedMonth;
   document.getElementById('statsMonthPicker').value = selectedStatsMonth;
   await loadData();
-  renderAll();
+  renderEssential();
+  resolveLocalRenderReady(); // заставку можна ховати вже тут — швидка частина готова
+  // важчі обчислення (стрічка дат, повний список) донавантажуються без блокування заставки
+  setTimeout(renderRest, 0);
 })();
 </script>
 </body>
