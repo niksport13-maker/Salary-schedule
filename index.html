@@ -538,9 +538,19 @@
 </div>
 
 <div id="statsView" style="display:none;">
-  <div class="field" style="margin:6px 2px 14px;">
+  <div class="period-tabs" style="margin-bottom:10px;">
+    <div class="tab active" data-statsperiod="month">Місяць</div>
+    <div class="tab" data-statsperiod="quarter">Квартал</div>
+  </div>
+
+  <div class="field" id="statsMonthPickerWrap" style="margin:6px 2px 14px;">
     <label>Місяць для аналізу</label>
     <input type="month" id="statsMonthPicker">
+  </div>
+
+  <div class="field" id="statsQuarterPickerWrap" style="margin:6px 2px 14px; display:none;">
+    <label>Квартал для аналізу</label>
+    <select id="statsQuarterPicker"></select>
   </div>
 
   <div class="sub-tabs">
@@ -562,8 +572,8 @@
     <div class="section-title"><span>Заповненість &lt; 30%</span></div>
     <div id="statsWorst"></div>
 
-    <div class="hero-card" style="padding:18px 16px 14px; margin-top:22px;">
-      <div class="hero-label">Заробіток по днях місяця</div>
+    <div class="hero-card" id="dailyChartCard" style="padding:18px 16px 14px; margin-top:22px;">
+      <div class="hero-label" id="dailyChartLabel">Заробіток по днях місяця</div>
       <div style="position:relative; height:170px; margin-top:12px;">
         <canvas id="dailyChart"></canvas>
       </div>
@@ -1751,6 +1761,65 @@ document.querySelectorAll('.main-tab').forEach(tab=>{
 });
 
 let selectedStatsMonth = isoToday().slice(0,7);
+let statsPeriodMode = 'month'; // 'month' | 'quarter'
+let selectedStatsQuarter = null; // {year, q} q is 1..4, set on init
+
+function currentQuarterOf(dateStr){
+  const [y,m] = dateStr.split('-').map(Number);
+  return {year:y, q: Math.ceil(m/3)};
+}
+
+function quarterMonthRange(year, q){
+  const startMonth = (q-1)*3 + 1;
+  const endMonth = startMonth + 2;
+  return {startMonth, endMonth};
+}
+
+function quarterRangeISO(year, q){
+  const {startMonth, endMonth} = quarterMonthRange(year, q);
+  const startISO = year+'-'+String(startMonth).padStart(2,'0')+'-01';
+  const lastDay = new Date(year, endMonth, 0).getDate();
+  const endISO = year+'-'+String(endMonth).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
+  const nDays = Math.round((new Date(endISO+'T00:00:00') - new Date(startISO+'T00:00:00'))/86400000) + 1;
+  return {startISO, endISO, nDays};
+}
+
+function quarterLabel(year, q){
+  const monthNames = ["Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"];
+  const {startMonth, endMonth} = quarterMonthRange(year, q);
+  return `Q${q} ${year} (${monthNames[startMonth-1]}–${monthNames[endMonth-1]})`;
+}
+
+// Список кварталів для випадаючого списку: поточний рік і попередній (8 варіантів)
+function buildQuarterOptionsList(){
+  const todayQ = currentQuarterOf(isoToday());
+  const opts = [];
+  [todayQ.year, todayQ.year-1].forEach(year=>{
+    for(let q=4; q>=1; q--){
+      opts.push({year, q});
+    }
+  });
+  return opts;
+}
+
+// Єдина точка правди: повертає активний діапазон дат для статистики (місяць або квартал)
+function getStatsRange(){
+  if(statsPeriodMode==='quarter' && selectedStatsQuarter){
+    const {startISO, endISO, nDays} = quarterRangeISO(selectedStatsQuarter.year, selectedStatsQuarter.q);
+    return {startISO, endISO, nDays, label: quarterLabel(selectedStatsQuarter.year, selectedStatsQuarter.q)};
+  }
+  const nDays = daysInMonth(selectedStatsMonth);
+  const startISO = selectedStatsMonth+'-01';
+  const endISO = selectedStatsMonth+'-'+String(nDays).padStart(2,'0');
+  const [y,m] = selectedStatsMonth.split('-');
+  const monthDate = new Date(Number(y), Number(m)-1, 1);
+  const label = monthDate.toLocaleDateString('uk-UA', {month:'long', year:'numeric'});
+  return {startISO, endISO, nDays, label: label.charAt(0).toUpperCase()+label.slice(1)};
+}
+
+function entryInRange(e, range){
+  return e.date >= range.startISO && e.date <= range.endISO;
+}
 
 function ddmmyyyy(dateStr){
   const d = new Date(dateStr+'T00:00:00');
@@ -1781,7 +1850,8 @@ function fillColorMuted(rate){
 }
 
 function renderAttendance(){
-  const monthEntries = entries.filter(e=>e.cap && e.date.startsWith(selectedStatsMonth));
+  const range = getStatsRange();
+  const monthEntries = entries.filter(e=>e.cap && entryInRange(e, range));
   // order Monday..Sunday for display, but keep native getDay() index for data keys
   const displayOrder = [1,2,3,4,5,6,0];
   const shortNames = {1:'Пн',2:'Вт',3:'Ср',4:'Чт',5:'Пт',6:'Сб',0:'Нд'};
@@ -1826,8 +1896,9 @@ function renderAttendance(){
     wdRow.appendChild(col);
   });
 
+  const periodWord = statsPeriodMode==='quarter' ? 'квартал' : 'місяць';
   document.getElementById('wdSubnote').textContent =
-    `% — середня заповненість цього дня тижня за місяць. Нижче — кожне тренування ${fullNames[selectedWdIndex]} окремо, з датами.`;
+    `% — середня заповненість цього дня тижня за ${periodWord}. Нижче — кожне тренування ${fullNames[selectedWdIndex]} окремо, з датами.`;
 
   // group sessions for the selected weekday by type+club+time (same training at different times = separate cards)
   const sessions = {};
@@ -1841,7 +1912,7 @@ function renderAttendance(){
   listBox.innerHTML = '';
   const keys = Object.keys(sessions).sort((a,b)=>sessions[a].time.localeCompare(sessions[b].time));
   if(!keys.length){
-    listBox.innerHTML = '<div class="empty">За цей місяць немає тренувань у цей день тижня</div>';
+    listBox.innerHTML = `<div class="empty">За цей ${periodWord} немає тренувань у цей день тижня</div>`;
     return;
   }
   keys.forEach(key=>{
@@ -1889,9 +1960,17 @@ function renderAttendance(){
 }
 
 function renderStats(){
-  renderDailyChart();
+  const chartCard = document.getElementById('dailyChartCard');
+  if(statsPeriodMode==='quarter'){
+    chartCard.style.display = 'none';
+  } else {
+    chartCard.style.display = '';
+    renderDailyChart();
+  }
   renderAttendance();
-  const monthEntries = entries.filter(e=>e.cap && e.date.startsWith(selectedStatsMonth));
+  const range = getStatsRange();
+  const periodWord = statsPeriodMode==='quarter' ? 'квартал' : 'місяць';
+  const monthEntries = entries.filter(e=>e.cap && entryInRange(e, range));
   const bestBox = document.getElementById('statsBest');
   const worstBox = document.getElementById('statsWorst');
   bestBox.innerHTML=''; worstBox.innerHTML='';
@@ -1902,12 +1981,12 @@ function renderStats(){
   if(best.length){
     best.forEach(e=>bestBox.appendChild(renderStatEntryRow(e,'best')));
   } else {
-    bestBox.innerHTML = '<div class="empty">За цей місяць немає тренувань із заповненістю понад 80%</div>';
+    bestBox.innerHTML = `<div class="empty">За цей ${periodWord} немає тренувань із заповненістю понад 80%</div>`;
   }
   if(worst.length){
     worst.forEach(e=>worstBox.appendChild(renderStatEntryRow(e,'worst')));
   } else {
-    worstBox.innerHTML = '<div class="empty">За цей місяць немає тренувань із заповненістю менше 30%</div>';
+    worstBox.innerHTML = `<div class="empty">За цей ${periodWord} немає тренувань із заповненістю менше 30%</div>`;
   }
 }
 
@@ -1919,11 +1998,18 @@ function daysInMonth(yyyyMm){
 let chartBars = []; // for tap/click hit-testing
 
 function renderDailyChart(){
-  const nDays = daysInMonth(selectedStatsMonth);
+  const range = getStatsRange();
+  const nDays = range.nDays;
+  const startDate = new Date(range.startISO+'T00:00:00');
   const daily = new Array(nDays).fill(0);
-  entries.filter(e=>e.date.startsWith(selectedStatsMonth)).forEach(e=>{
-    const day = Number(e.date.split('-')[2]);
-    daily[day-1] += e.pay;
+  const dailyDates = new Array(nDays);
+  for(let i=0;i<nDays;i++){
+    const d = new Date(startDate); d.setDate(startDate.getDate()+i);
+    dailyDates[i] = toISO(d);
+  }
+  entries.filter(e=>entryInRange(e, range)).forEach(e=>{
+    const idx = Math.round((new Date(e.date+'T00:00:00') - startDate)/86400000);
+    if(idx>=0 && idx<nDays) daily[idx] += e.pay;
   });
 
   const canvas = document.getElementById('dailyChart');
@@ -1940,12 +2026,15 @@ function renderDailyChart(){
   ctx.clearRect(0,0,cssWidth,cssHeight);
   chartBars = [];
 
+  const periodWord = statsPeriodMode==='quarter' ? 'кварталу' : 'місяця';
+  document.getElementById('dailyChartLabel').textContent = statsPeriodMode==='quarter' ? 'Заробіток по днях кварталу' : 'Заробіток по днях місяця';
+
   const total = daily.reduce((a,v)=>a+v,0);
   if(total===0){
     ctx.fillStyle = '#8B93A1';
     ctx.font = '13px Inter, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Ще немає тренувань цього місяця', cssWidth/2, cssHeight/2);
+    ctx.fillText(`Ще немає тренувань цього ${periodWord}`, cssWidth/2, cssHeight/2);
     return;
   }
 
@@ -1954,7 +2043,7 @@ function renderDailyChart(){
   const chartH = cssHeight-padT-padB;
   const max = Math.max(...daily, 1);
   const slot = chartW/nDays;
-  const barW = Math.max(2, slot*0.6);
+  const barW = Math.max(1, slot*0.6);
 
   ctx.strokeStyle = '#2E333C';
   ctx.lineWidth = 1;
@@ -1986,20 +2075,32 @@ function renderDailyChart(){
       ctx.closePath();
       ctx.fill();
     }
-    chartBars.push({x, y:padT, w:barW, h:chartH, day:i+1, value:v});
+    chartBars.push({x, y:padT, w:barW, h:chartH, date:dailyDates[i], value:v});
   });
 
   ctx.fillStyle = '#8B93A1';
   ctx.font = '10px Inter, sans-serif';
   ctx.textAlign = 'center';
-  const labelStep = nDays>20 ? 5 : (nDays>10 ? 2 : 1);
-  daily.forEach((v,i)=>{
-    const day=i+1;
-    if(day===1 || day===nDays || day%labelStep===0){
-      const x = padL + i*slot + slot/2;
-      ctx.fillText(String(day), x, cssHeight-4);
-    }
-  });
+
+  if(statsPeriodMode==='quarter'){
+    // для кварталу підписуємо лише 1-ше число кожного місяця в діапазоні, інакше підписи зіллються
+    daily.forEach((v,i)=>{
+      const d = new Date(dailyDates[i]+'T00:00:00');
+      if(d.getDate()===1 || i===0 || i===nDays-1){
+        const x = padL + i*slot + slot/2;
+        ctx.fillText(ddmm(d), x, cssHeight-4);
+      }
+    });
+  } else {
+    const labelStep = nDays>20 ? 5 : (nDays>10 ? 2 : 1);
+    daily.forEach((v,i)=>{
+      const day=i+1;
+      if(day===1 || day===nDays || day%labelStep===0){
+        const x = padL + i*slot + slot/2;
+        ctx.fillText(String(day), x, cssHeight-4);
+      }
+    });
+  }
 }
 
 document.getElementById('dailyChart').addEventListener('click', (ev)=>{
@@ -2007,7 +2108,7 @@ document.getElementById('dailyChart').addEventListener('click', (ev)=>{
   const x = ev.clientX - rect.left;
   const bar = chartBars.find(b => x>=b.x && x<=b.x+b.w);
   if(bar){
-    showToast(`${bar.day} число: ${bar.value.toLocaleString('uk-UA')} грн`);
+    showToast(`${ddmmyyyy(bar.date)}: ${bar.value.toLocaleString('uk-UA')} грн`);
   }
 });
 
@@ -2022,6 +2123,39 @@ document.getElementById('statsMonthPicker').addEventListener('change', (e)=>{
   }
 });
 
+function populateQuarterPicker(){
+  const sel = document.getElementById('statsQuarterPicker');
+  sel.innerHTML = '';
+  buildQuarterOptionsList().forEach(({year,q})=>{
+    const opt = document.createElement('option');
+    opt.value = year+'-'+q;
+    opt.textContent = quarterLabel(year,q);
+    sel.appendChild(opt);
+  });
+  if(!selectedStatsQuarter){
+    selectedStatsQuarter = currentQuarterOf(isoToday());
+  }
+  sel.value = selectedStatsQuarter.year+'-'+selectedStatsQuarter.q;
+}
+
+document.getElementById('statsQuarterPicker').addEventListener('change', (e)=>{
+  const [year,q] = e.target.value.split('-').map(Number);
+  selectedStatsQuarter = {year,q};
+  renderStats();
+});
+
+document.querySelectorAll('[data-statsperiod]').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('[data-statsperiod]').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    statsPeriodMode = tab.dataset.statsperiod;
+    document.getElementById('statsMonthPickerWrap').style.display = statsPeriodMode==='month' ? '' : 'none';
+    document.getElementById('statsQuarterPickerWrap').style.display = statsPeriodMode==='quarter' ? '' : 'none';
+    if(statsPeriodMode==='quarter') populateQuarterPicker();
+    renderStats();
+  });
+});
+
 document.querySelectorAll('.sub-tab').forEach(tab=>{
   tab.addEventListener('click', ()=>{
     document.querySelectorAll('.sub-tab').forEach(t=>t.classList.remove('active'));
@@ -2031,7 +2165,7 @@ document.querySelectorAll('.sub-tab').forEach(tab=>{
     document.getElementById('fillView').style.display = sub==='fill' ? '' : 'none';
     // canvas розраховує свій розмір по батьківському елементу — якщо той щойно
     // став видимим, треба перемалювати графік, інакше він лишається порожнім (0×0)
-    if(sub==='fill') renderDailyChart();
+    if(sub==='fill' && statsPeriodMode!=='quarter') renderDailyChart();
   });
 });
 
