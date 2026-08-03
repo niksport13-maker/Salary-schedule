@@ -480,7 +480,7 @@
   <div class="main-nav">
     <div class="main-tab active" data-view="home">Головна</div>
     <div class="main-tab" data-view="stats">Статистика</div>
-    <div class="main-tab" data-view="backup">Копія даних</div>
+    <div class="main-tab" data-view="backup">Налаштування</div>
   </div>
 </header>
 
@@ -572,9 +572,15 @@
     <input type="month" id="statsMonthPicker">
   </div>
 
-  <div class="field" id="statsQuarterPickerWrap" style="margin:6px 2px 14px; display:none;">
-    <label>Квартал для аналізу</label>
-    <select id="statsQuarterPicker"></select>
+  <div class="row2" id="statsQuarterPickerWrap" style="margin:6px 2px 14px; display:none;">
+    <div class="field" style="margin-bottom:0;">
+      <label>Рік</label>
+      <select id="statsYearPicker"></select>
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <label>Квартал</label>
+      <select id="statsQuarterPicker"></select>
+    </div>
   </div>
 
   <div id="quarterSummaryBlock" style="display:none;">
@@ -1828,15 +1834,19 @@ function quarterLabel(year, q){
   return `Q${q} ${year} (${monthNames[startMonth-1]}–${monthNames[endMonth-1]})`;
 }
 
-// Список кварталів для випадаючого списку: поточний рік і попередній (8 варіантів)
-function buildQuarterOptionsList(){
+function quarterLabelShort(q){
+  const monthNames = ["Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"];
+  const {startMonth, endMonth} = quarterMonthRange(2000, q); // рік не впливає на назви місяців
+  return `Q${q} (${monthNames[startMonth-1]}–${monthNames[endMonth-1]})`;
+}
+
+// Список років для випадаючого списку — поточний і кілька попередніх
+function buildYearOptionsList(){
   const todayQ = currentQuarterOf(isoToday());
   const opts = [];
-  [todayQ.year, todayQ.year-1].forEach(year=>{
-    for(let q=4; q>=1; q--){
-      opts.push({year, q});
-    }
-  });
+  for(let y=todayQ.year; y>=todayQ.year-5; y--){
+    opts.push(y);
+  }
   return opts;
 }
 
@@ -2224,23 +2234,38 @@ document.getElementById('statsMonthPicker').addEventListener('change', (e)=>{
 });
 
 function populateQuarterPicker(){
-  const sel = document.getElementById('statsQuarterPicker');
-  sel.innerHTML = '';
-  buildQuarterOptionsList().forEach(({year,q})=>{
-    const opt = document.createElement('option');
-    opt.value = year+'-'+q;
-    opt.textContent = quarterLabel(year,q);
-    sel.appendChild(opt);
-  });
   if(!selectedStatsQuarter){
     selectedStatsQuarter = currentQuarterOf(isoToday());
   }
-  sel.value = selectedStatsQuarter.year+'-'+selectedStatsQuarter.q;
+
+  const yearSel = document.getElementById('statsYearPicker');
+  yearSel.innerHTML = '';
+  buildYearOptionsList().forEach(year=>{
+    const opt = document.createElement('option');
+    opt.value = year;
+    opt.textContent = year;
+    yearSel.appendChild(opt);
+  });
+  yearSel.value = selectedStatsQuarter.year;
+
+  const qSel = document.getElementById('statsQuarterPicker');
+  qSel.innerHTML = '';
+  for(let q=1; q<=4; q++){
+    const opt = document.createElement('option');
+    opt.value = q;
+    opt.textContent = quarterLabelShort(q);
+    qSel.appendChild(opt);
+  }
+  qSel.value = selectedStatsQuarter.q;
 }
 
+document.getElementById('statsYearPicker').addEventListener('change', (e)=>{
+  selectedStatsQuarter = {year: Number(e.target.value), q: selectedStatsQuarter.q};
+  renderStats();
+});
+
 document.getElementById('statsQuarterPicker').addEventListener('change', (e)=>{
-  const [year,q] = e.target.value.split('-').map(Number);
-  selectedStatsQuarter = {year,q};
+  selectedStatsQuarter = {year: selectedStatsQuarter.year, q: Number(e.target.value)};
   renderStats();
 });
 
