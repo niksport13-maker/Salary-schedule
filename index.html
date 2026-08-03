@@ -1844,7 +1844,7 @@ function quarterLabelShort(q){
 function buildYearOptionsList(){
   const todayQ = currentQuarterOf(isoToday());
   const opts = [];
-  for(let y=todayQ.year; y>=todayQ.year-5; y--){
+  for(let y=todayQ.year; y>=todayQ.year-1; y--){
     opts.push(y);
   }
   return opts;
@@ -2271,12 +2271,27 @@ document.getElementById('statsQuarterPicker').addEventListener('change', (e)=>{
 
 document.querySelectorAll('[data-statsperiod]').forEach(tab=>{
   tab.addEventListener('click', ()=>{
+    const wasActive = tab.classList.contains('active');
+    const newMode = tab.dataset.statsperiod;
+
     document.querySelectorAll('[data-statsperiod]').forEach(t=>t.classList.remove('active'));
     tab.classList.add('active');
-    statsPeriodMode = tab.dataset.statsperiod;
+
+    if(wasActive && statsPeriodMode===newMode){
+      // повторний тап по вже активній вкладці — скидаємо на поточний місяць/квартал
+      if(newMode==='month'){
+        selectedStatsMonth = isoToday().slice(0,7);
+        document.getElementById('statsMonthPicker').value = selectedStatsMonth;
+      } else {
+        selectedStatsQuarter = currentQuarterOf(isoToday());
+        populateQuarterPicker();
+      }
+    }
+
+    statsPeriodMode = newMode;
     document.getElementById('statsMonthPickerWrap').style.display = statsPeriodMode==='month' ? '' : 'none';
     document.getElementById('statsQuarterPickerWrap').style.display = statsPeriodMode==='quarter' ? '' : 'none';
-    if(statsPeriodMode==='quarter') populateQuarterPicker();
+    if(statsPeriodMode==='quarter' && !wasActive) populateQuarterPicker();
     renderStats();
   });
 });
