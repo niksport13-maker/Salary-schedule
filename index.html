@@ -263,6 +263,30 @@
   .rank-row.worst .rfill{color:var(--danger);}
 
   .sub-tabs{display:flex; gap:8px; margin:4px 0 18px;}
+
+  .quarter-summary-card{
+    background:linear-gradient(155deg, var(--surface2), var(--surface));
+    border:1px solid var(--line); border-radius:14px; padding:12px 14px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;
+  }
+  .quarter-summary-card .left{min-width:0;}
+  .quarter-summary-card .qlbl{font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; font-weight:600;}
+  .quarter-summary-card .qamount{font-size:22px; margin-top:2px;}
+  .quarter-summary-card .qamount .unit{font-size:12px; color:var(--muted); font-weight:500; margin-left:3px;}
+  .quarter-summary-card .right{text-align:right; font-size:12px; color:var(--muted); line-height:1.5;}
+  .quarter-summary-card .right b{color:var(--text); font-family:'Oswald',sans-serif; font-size:14px;}
+
+  .month-strip{display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:18px;}
+  .month-chip{
+    background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:9px 6px; text-align:center;
+  }
+  .month-chip.best{border-color:var(--teal);}
+  .month-chip .mname{font-size:11.5px; color:var(--muted); font-weight:700; text-transform:uppercase;}
+  .month-chip .msum{font-size:12.5px; margin-top:3px; white-space:nowrap;}
+  .month-chip .mfill{font-size:11px; font-weight:700; margin-top:3px;}
+  .fill-good{color:#3F8F86;}
+  .fill-mid{color:#C98A2E;}
+  .fill-low{color:#B04A4A;}
   .sub-tab{
     flex:1; text-align:center; padding:9px 0; border-radius:12px;
     background:var(--surface); border:1px solid var(--line);
@@ -551,6 +575,20 @@
   <div class="field" id="statsQuarterPickerWrap" style="margin:6px 2px 14px; display:none;">
     <label>Квартал для аналізу</label>
     <select id="statsQuarterPicker"></select>
+  </div>
+
+  <div id="quarterSummaryBlock" style="display:none;">
+    <div class="quarter-summary-card">
+      <div class="left">
+        <div class="qlbl" id="quarterSummaryLabel">Заробіток за квартал</div>
+        <div class="qamount display"><span id="quarterSummaryAmount">0</span><span class="unit">грн</span></div>
+      </div>
+      <div class="right">
+        <div><b id="quarterSummaryCount">0</b> тренувань</div>
+        <div><b id="quarterSummaryFill">—</b> сер. заповненість</div>
+      </div>
+    </div>
+    <div class="month-strip" id="quarterMonthStrip"></div>
   </div>
 
   <div class="sub-tabs">
@@ -1821,6 +1859,67 @@ function entryInRange(e, range){
   return e.date >= range.startISO && e.date <= range.endISO;
 }
 
+const MONTH_SHORT_UA = ["Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"];
+
+function fillLevelClass(pct){
+  if(pct>=75) return 'fill-good';
+  if(pct>=45) return 'fill-mid';
+  return 'fill-low';
+}
+
+function renderQuarterSummary(){
+  const block = document.getElementById('quarterSummaryBlock');
+  if(statsPeriodMode!=='quarter' || !selectedStatsQuarter){
+    block.style.display = 'none';
+    return;
+  }
+  block.style.display = '';
+
+  const {year, q} = selectedStatsQuarter;
+  const range = getStatsRange();
+  const quarterEntries = entries.filter(e=>entryInRange(e, range));
+  const paidEntries = quarterEntries.filter(e=>e.cap);
+
+  const totalSum = quarterEntries.reduce((a,e)=>a+e.pay,0);
+  const totalCount = quarterEntries.length;
+  const avgFill = paidEntries.length
+    ? Math.round((paidEntries.reduce((a,e)=>a+(e.count/e.cap),0)/paidEntries.length)*100)
+    : null;
+
+  document.getElementById('quarterSummaryLabel').textContent = 'Заробіток за '+quarterLabel(year,q).split(' (')[0];
+  document.getElementById('quarterSummaryAmount').textContent = totalSum.toLocaleString('uk-UA');
+  document.getElementById('quarterSummaryCount').textContent = totalCount;
+  document.getElementById('quarterSummaryFill').textContent = avgFill===null ? '—' : avgFill+'%';
+
+  // Розбивка по трьох місяцях кварталу
+  const {startMonth} = quarterMonthRange(year, q);
+  const monthsData = [];
+  for(let i=0;i<3;i++){
+    const m = startMonth + i;
+    const monthKey = year+'-'+String(m).padStart(2,'0');
+    const mEntries = entries.filter(e=>e.date.startsWith(monthKey));
+    const mPaid = mEntries.filter(e=>e.cap);
+    const mSum = mEntries.reduce((a,e)=>a+e.pay,0);
+    const mFill = mPaid.length ? Math.round((mPaid.reduce((a,e)=>a+(e.count/e.cap),0)/mPaid.length)*100) : null;
+    monthsData.push({name: MONTH_SHORT_UA[m-1], sum: mSum, fill: mFill});
+  }
+  const bestFill = Math.max(...monthsData.map(m=>m.fill===null?-1:m.fill));
+
+  const strip = document.getElementById('quarterMonthStrip');
+  strip.innerHTML = '';
+  monthsData.forEach(m=>{
+    const isBest = m.fill!==null && m.fill===bestFill && bestFill>=0;
+    const chip = document.createElement('div');
+    chip.className = 'month-chip'+(isBest?' best':'');
+    chip.innerHTML = `
+      <div class="mname">${m.name}</div>
+      <div class="msum display">${m.sum.toLocaleString('uk-UA')}₴</div>
+      <div class="mfill ${m.fill===null?'':fillLevelClass(m.fill)}">${m.fill===null?'—':m.fill+'%'}</div>
+    `;
+    strip.appendChild(chip);
+  });
+}
+
 function ddmmyyyy(dateStr){
   const d = new Date(dateStr+'T00:00:00');
   return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear();
@@ -1967,6 +2066,7 @@ function renderStats(){
     chartCard.style.display = '';
     renderDailyChart();
   }
+  renderQuarterSummary();
   renderAttendance();
   const range = getStatsRange();
   const periodWord = statsPeriodMode==='quarter' ? 'квартал' : 'місяць';
