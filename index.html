@@ -723,7 +723,8 @@ function calcPay(cap, count){
   cap = Number(cap); count = Number(count);
   if(cap<=0) return null;
   if(count<=0) return 0;
-  const bonusPerPerson = Math.max(0, count - cap/2) * RATE_PER_PERSON;
+  const halfCap = Math.floor(cap/2); // для непарної місткості (31 → поріг 15): 16-та людина вже дає повний бонус, а не частковий
+  const bonusPerPerson = Math.max(0, count - halfCap) * RATE_PER_PERSON;
   const nearFullBonus = count >= (cap - PREMIUM_SLOTS + 1) ? RATE_FULL_BONUS : 0;
   const bonus = bonusPerPerson + nearFullBonus;
   return Math.round(RATE_BASE + bonus);
@@ -1662,7 +1663,7 @@ function renderClubStats(list, total){
     byClub[c].sum += e.pay;
     byClub[c].fillSum += (e.count/e.cap);
     if(e.count >= (e.cap - PREMIUM_SLOTS + 1)) byClub[c].fullClasses++;
-    byClub[c].bonusPeople += Math.max(0, e.count - e.cap/2);
+    byClub[c].bonusPeople += Math.max(0, e.count - Math.floor(e.cap/2));
   });
   Object.keys(byClub).forEach(club=>{
     const d = byClub[club];
@@ -1688,7 +1689,7 @@ function renderClubStats(list, total){
   });
   const paidCount = list.filter(e=>e.pay>0).length;
   const totalFullClasses = list.filter(e=>e.count >= (e.cap - PREMIUM_SLOTS + 1)).length;
-  const totalBonusPeople = Math.round(list.reduce((a,e)=>a+Math.max(0, e.count - e.cap/2),0));
+  const totalBonusPeople = Math.round(list.reduce((a,e)=>a+Math.max(0, e.count - Math.floor(e.cap/2)),0));
   const totalRow = document.createElement('div');
   totalRow.className='entry';
   totalRow.style.borderColor='var(--amber)';
