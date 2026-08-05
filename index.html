@@ -813,7 +813,7 @@ function genId(){
 function getScheduleForDate(dateStr){
   const weekday = new Date(dateStr+'T00:00:00').getDay();
   const tItems = templates
-    .filter(t=>t.weekday===weekday && !skips.includes(t.id+'|'+dateStr))
+    .filter(t=>t.weekday===weekday && !skips.includes(t.id+'|'+dateStr) && (!t.startDate || dateStr >= t.startDate))
     .map(t=>({id:t.id, kind:'template', time:t.time, type:t.type, club:t.club, cap:t.cap, substitution:!!t.substitution}));
   const eItems = extras
     .filter(x=>x.date===dateStr)
@@ -2463,7 +2463,7 @@ document.getElementById('saSaveBtn').addEventListener('click', ()=>{
   const substitution = document.getElementById('saSubstitution').checked;
   if(repeat){
     const weekday = new Date(selectedScheduleDate+'T00:00:00').getDay();
-    templates.push({id: genId(), weekday, time, type, club, cap, substitution});
+    templates.push({id: genId(), weekday, time, type, club, cap, substitution, startDate: selectedScheduleDate});
   } else {
     extras.push({id: genId(), date: selectedScheduleDate, time, type, club, cap, substitution});
   }
