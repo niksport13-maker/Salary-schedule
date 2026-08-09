@@ -199,6 +199,21 @@
   }
   #monthPicker{ text-align:center; text-align-last:center; }
 
+  .quarter-unified{
+    display:flex; background:var(--surface2); border:1px solid var(--line); border-radius:10px;
+    height:46px; overflow:hidden;
+  }
+  .quarter-unified select{
+    background:transparent; border:none; color:var(--text); font-size:15px;
+    font-family:'Inter',sans-serif; height:100%; padding:0 12px;
+    -webkit-appearance:none; appearance:none;
+    text-align:center; text-align-last:center;
+  }
+  .quarter-unified select:focus{outline:none;}
+  .quarter-unified .qyear{flex:0 0 88px;}
+  .quarter-unified .qdivider{width:1px; background:var(--line); align-self:center; height:26px;}
+  .quarter-unified .qquarter{flex:1;}
+
   .week-picker-btn{
     width:100%; background:var(--surface2); border:1px solid var(--line); border-radius:10px;
     padding:11px 14px; height:46px; box-sizing:border-box;
@@ -257,7 +272,8 @@
   .rank-row .rnum{font-family:'Oswald',sans-serif; font-size:16px; color:var(--muted); width:20px;}
   .rank-row .rmid{flex:1; min-width:0;}
   .rank-row .rtype{font-size:14.5px; font-weight:600;}
-  .rank-row .rmeta{font-size:12px; color:var(--muted); margin-top:2px;}
+  .rank-row .rmeta{font-size:12px; color:var(--muted); margin-top:2px; display:flex; justify-content:space-between; gap:8px;}
+  .rank-row .rmeta .rsum{color:var(--text); font-weight:600; white-space:nowrap;}
   .rank-row .rfill{font-family:'Oswald',sans-serif; font-size:19px;}
   .rank-row.best .rfill{color:var(--teal);}
   .rank-row.worst .rfill{color:var(--danger);}
@@ -287,6 +303,42 @@
   .fill-good{color:#3F8F86;}
   .fill-mid{color:#C98A2E;}
   .fill-low{color:#B04A4A;}
+  .rank-row.top1{border-color:var(--amber);}
+  .rank-row.top1 .rnum{color:var(--amber);}
+  .rank-bar-track{height:4px; background:var(--surface2); border-radius:2px; margin-top:7px; overflow:hidden;}
+  .rank-bar-fill{height:100%; border-radius:2px;}
+
+  .hour-row{
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:10px 14px; margin-bottom:8px; display:flex; align-items:center; gap:12px;
+  }
+  .hour-row .hnum{font-family:'Oswald',sans-serif; font-size:14px; color:var(--muted); width:18px; text-align:center;}
+  .hour-row .htime{font-family:'Oswald',sans-serif; font-size:16px; color:var(--amber); min-width:52px;}
+  .hour-row .hmid{flex:1; min-width:0;}
+  .hour-row .hclub{font-size:12.5px; font-weight:600; color:var(--text);}
+  .hour-row .hmeta{font-size:11.5px; color:var(--muted); margin-top:2px;}
+  .hour-row .hfill{font-family:'Oswald',sans-serif; font-size:17px;}
+  .hour-row.top1{border-color:var(--teal);}
+  .hour-row.top1 .htime{color:var(--teal);}
+  .hour-row{cursor:pointer;}
+  .hour-row .chev{color:var(--muted); font-size:14px;}
+
+  .cal-weekdays{display:grid; grid-template-columns:repeat(7,1fr); gap:5px; margin-bottom:6px;}
+  .cal-weekdays div{text-align:center; font-size:10px; color:var(--muted); font-weight:600;}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px;}
+  .cal-cell{
+    aspect-ratio:1; border-radius:8px; display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:600; position:relative; cursor:pointer;
+  }
+  .cal-cell.empty{visibility:hidden; cursor:default;}
+  .cal-cell.lvl-0{background:var(--surface2); border:1px solid var(--line); color:#555; cursor:default;}
+  .cal-cell.lvl-1{background:#3d3320; color:#c9a35f;}
+  .cal-cell.lvl-2{background:#7a5a1f; color:var(--text);}
+  .cal-cell.lvl-3{background:#c98a2e; color:#1A1300;}
+  .cal-cell.lvl-4{background:var(--amber); color:#1A1300;}
+  .cal-cell.today{box-shadow:0 0 0 2px var(--text) inset;}
+  .heatmap-legend{display:flex; align-items:center; gap:6px; margin-top:14px; font-size:10.5px; color:var(--muted);}
+  .heatmap-legend .cell{width:14px; height:14px; border-radius:4px;}
   .sub-tab{
     flex:1; text-align:center; padding:9px 0; border-radius:12px;
     background:var(--surface); border:1px solid var(--line);
@@ -572,14 +624,12 @@
     <input type="month" id="statsMonthPicker">
   </div>
 
-  <div class="row2" id="statsQuarterPickerWrap" style="margin:6px 2px 14px; display:none;">
-    <div class="field" style="margin-bottom:0;">
-      <label>Рік</label>
-      <select id="statsYearPicker"></select>
-    </div>
-    <div class="field" style="margin-bottom:0;">
-      <label>Квартал</label>
-      <select id="statsQuarterPicker"></select>
+  <div class="field" id="statsQuarterPickerWrap" style="margin:6px 2px 14px; display:none;">
+    <label>Квартал для аналізу</label>
+    <div class="quarter-unified">
+      <select id="statsYearPicker" class="qyear"></select>
+      <div class="qdivider"></div>
+      <select id="statsQuarterPicker" class="qquarter"></select>
     </div>
   </div>
 
@@ -616,6 +666,35 @@
     <div class="section-title"><span>Заповненість &lt; 30%</span></div>
     <div id="statsWorst"></div>
 
+    <div id="typeRankingBlock" style="display:none;">
+      <div class="section-title"><span>Рейтинг тренувань за заповненістю</span></div>
+      <div id="typeRankingList"></div>
+    </div>
+
+    <div id="bestHoursBlock" style="display:none;">
+      <div class="section-title"><span>Найкращі години</span></div>
+      <div id="bestHoursList"></div>
+    </div>
+
+    <div id="heatmapCalendarBlock" style="display:none;">
+      <div class="section-title"><span>Теплова карта заповненості</span></div>
+      <div class="hero-card" style="padding:16px 14px 14px;">
+        <div class="cal-weekdays">
+          <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Нд</div>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="heatmap-legend">
+          <span>Менше</span>
+          <div class="cell lvl-0"></div>
+          <div class="cell lvl-1"></div>
+          <div class="cell lvl-2"></div>
+          <div class="cell lvl-3"></div>
+          <div class="cell lvl-4"></div>
+          <span>Більше</span>
+        </div>
+      </div>
+    </div>
+
     <div class="hero-card" id="dailyChartCard" style="padding:18px 16px 14px; margin-top:22px;">
       <div class="hero-label" id="dailyChartLabel">Заробіток по днях місяця</div>
       <div style="position:relative; height:170px; margin-top:12px;">
@@ -649,6 +728,16 @@
     <h2 id="clubOverlayTitle">Клуб</h2>
     <div id="clubOverlayList"></div>
     <button class="cancel-btn" id="clubOverlayClose">Закрити</button>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="hourOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="hourOverlayTitle">Година</h2>
+    <div class="sub" id="hourOverlaySub" style="font-size:12.5px; color:var(--muted); margin-bottom:16px;"></div>
+    <div id="hourOverlayList"></div>
+    <button class="cancel-btn" id="hourOverlayClose">Закрити</button>
   </div>
 </div>
 
@@ -1930,9 +2019,214 @@ function renderQuarterSummary(){
   });
 }
 
+function fillBarColor(pct){
+  if(pct>=75) return '#3F8F86';
+  if(pct>=45) return '#C98A2E';
+  return '#B04A4A';
+}
+
+function renderTypeRanking(){
+  const block = document.getElementById('typeRankingBlock');
+  if(statsPeriodMode!=='quarter'){
+    block.style.display = 'none';
+    return;
+  }
+  block.style.display = '';
+
+  const range = getStatsRange();
+  const rangeEntries = entries.filter(e=>e.cap && entryInRange(e, range));
+
+  // групуємо за парою "тип + клуб"
+  const groups = {};
+  rangeEntries.forEach(e=>{
+    const key = e.type+'|'+(e.club||'');
+    if(!groups[key]) groups[key] = {type:e.type, club:e.club||'', sumFill:0, count:0, sumPay:0};
+    groups[key].sumFill += (e.count/e.cap);
+    groups[key].count++;
+    groups[key].sumPay += e.pay;
+  });
+
+  const list = Object.values(groups).map(g=>({
+    type:g.type, club:g.club, count:g.count, sumPay:g.sumPay,
+    avgFill: Math.round((g.sumFill/g.count)*100)
+  })).sort((a,b)=>b.avgFill-a.avgFill);
+
+  const box = document.getElementById('typeRankingList');
+  box.innerHTML = '';
+  if(!list.length){
+    box.innerHTML = '<div class="empty">За цей квартал ще немає даних для рейтингу</div>';
+    return;
+  }
+  list.forEach((g,i)=>{
+    const row = document.createElement('div');
+    row.className = 'rank-row'+(i===0?' top1':'');
+    row.innerHTML = `
+      <div class="rnum display">${i+1}</div>
+      <div class="rmid">
+        <div class="rtype">${g.type}${g.club ? ` <span style="color:var(--muted); font-weight:500;">· ${g.club}</span>` : ''}</div>
+        <div class="rmeta"><span>${g.count} тренувань</span><span class="rsum">${g.sumPay.toLocaleString('uk-UA')}₴</span></div>
+        <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${g.avgFill}%; background:${fillBarColor(g.avgFill)};"></div></div>
+      </div>
+      <div class="rfill display ${fillLevelClass(g.avgFill)}">${g.avgFill}%</div>
+    `;
+    box.appendChild(row);
+  });
+}
+
+function renderBestHours(){
+  const block = document.getElementById('bestHoursBlock');
+  if(statsPeriodMode!=='quarter'){
+    block.style.display = 'none';
+    return;
+  }
+  block.style.display = '';
+
+  const range = getStatsRange();
+  const rangeEntries = entries.filter(e=>e.cap && entryInRange(e, range));
+
+  // групуємо за парою "час + клуб" (тип тренування не враховується)
+  const groups = {};
+  rangeEntries.forEach(e=>{
+    const key = e.time+'|'+(e.club||'');
+    if(!groups[key]) groups[key] = {time:e.time, club:e.club||'', sumFill:0, count:0};
+    groups[key].sumFill += (e.count/e.cap);
+    groups[key].count++;
+  });
+
+  const list = Object.values(groups).map(g=>({
+    time:g.time, club:g.club, count:g.count,
+    avgFill: Math.round((g.sumFill/g.count)*100)
+  })).sort((a,b)=>b.avgFill-a.avgFill);
+
+  const box = document.getElementById('bestHoursList');
+  box.innerHTML = '';
+  if(!list.length){
+    box.innerHTML = '<div class="empty">За цей квартал ще немає даних</div>';
+    return;
+  }
+  list.forEach((g,i)=>{
+    const row = document.createElement('div');
+    row.className = 'hour-row'+(i===0?' top1':'');
+    row.innerHTML = `
+      <div class="hnum display">${i+1}</div>
+      <div class="htime">${g.time}</div>
+      <div class="hmid">
+        <div class="hclub">${g.club||'—'}</div>
+        <div class="hmeta">${g.count} тренувань за квартал</div>
+      </div>
+      <div class="hfill display ${fillLevelClass(g.avgFill)}">${g.avgFill}%</div>
+      <div class="chev">›</div>
+    `;
+    row.addEventListener('click', ()=>openHourDetail(g.time, g.club, range));
+    box.appendChild(row);
+  });
+}
+
+function openHourDetail(time, club, range){
+  const rangeEntries = entries.filter(e=>e.cap && entryInRange(e, range) && e.time===time && (e.club||'')===club)
+    .sort((a,b)=>a.date.localeCompare(b.date));
+
+  document.getElementById('hourOverlayTitle').textContent = time + (club ? ' · '+club : '');
+  const avgFill = rangeEntries.length
+    ? Math.round((rangeEntries.reduce((a,e)=>a+(e.count/e.cap),0)/rangeEntries.length)*100)
+    : 0;
+  document.getElementById('hourOverlaySub').textContent =
+    rangeEntries.length + ' тренувань за '+getStatsRange().label+' · сер. заповненість '+avgFill+'%';
+
+  const box = document.getElementById('hourOverlayList');
+  box.innerHTML = '';
+  let lastMonthKey = null;
+  const monthNamesFull = ["Січень","Лютий","Березень","Квітень","Травень","Червень","Липень","Серпень","Вересень","Жовтень","Листопад","Грудень"];
+  rangeEntries.forEach(e=>{
+    const monthKey = e.date.slice(0,7);
+    if(monthKey!==lastMonthKey){
+      lastMonthKey = monthKey;
+      const m = Number(monthKey.split('-')[1]);
+      const h = document.createElement('div');
+      h.className = 'day-group-header';
+      h.textContent = monthNamesFull[m-1];
+      box.appendChild(h);
+    }
+    const fill = Math.round((e.count/e.cap)*100);
+    const div = document.createElement('div');
+    div.className = 'entry';
+    div.innerHTML = `
+      <div class="mid">
+        <div class="type">${e.type}</div>
+        <div class="meta">${ddmmyyyy(e.date)} · ${e.count}/${e.cap} людей · ${fill}%</div>
+      </div>
+      <div class="money display">${e.pay}₴</div>
+    `;
+    box.appendChild(div);
+  });
+  document.getElementById('hourOverlay').classList.add('open');
+}
+document.getElementById('hourOverlayClose').addEventListener('click', ()=>{
+  document.getElementById('hourOverlay').classList.remove('open');
+});
+document.getElementById('hourOverlay').addEventListener('click', (e)=>{
+  if(e.target.id==='hourOverlay') document.getElementById('hourOverlay').classList.remove('open');
+});
+
 function ddmmyyyy(dateStr){
   const d = new Date(dateStr+'T00:00:00');
   return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear();
+}
+
+function fillToLevel(pct){
+  if(pct<=0) return 0;
+  if(pct<40) return 1;
+  if(pct<65) return 2;
+  if(pct<85) return 3;
+  return 4;
+}
+
+function renderHeatmapCalendar(){
+  const block = document.getElementById('heatmapCalendarBlock');
+  if(statsPeriodMode!=='month'){
+    block.style.display = 'none';
+    return;
+  }
+  block.style.display = '';
+
+  const [y,m] = selectedStatsMonth.split('-').map(Number);
+  const firstDay = new Date(y, m-1, 1);
+  const nDays = new Date(y, m, 0).getDate();
+  let startOffset = firstDay.getDay();
+  startOffset = startOffset===0 ? 6 : startOffset-1; // понеділок = 0
+
+  // групуємо тренування по конкретній даті
+  const byDate = {};
+  entries.filter(e=>e.cap && e.date.startsWith(selectedStatsMonth)).forEach(e=>{
+    if(!byDate[e.date]) byDate[e.date] = {sumFill:0, count:0};
+    byDate[e.date].sumFill += (e.count/e.cap);
+    byDate[e.date].count++;
+  });
+
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+  for(let i=0;i<startOffset;i++){
+    const empty = document.createElement('div');
+    empty.className = 'cal-cell empty';
+    grid.appendChild(empty);
+  }
+
+  const today = isoToday();
+  for(let d=1; d<=nDays; d++){
+    const dateStr = selectedStatsMonth+'-'+String(d).padStart(2,'0');
+    const dayData = byDate[dateStr];
+    const avgFill = dayData ? Math.round((dayData.sumFill/dayData.count)*100) : 0;
+    const lvl = fillToLevel(avgFill);
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell lvl-'+lvl + (dateStr===today ? ' today' : '');
+    cell.textContent = d;
+    if(dayData){
+      cell.addEventListener('click', ()=>{
+        showToast(`${ddmmyyyy(dateStr)}: ${dayData.count} тренувань, сер. заповненість ${avgFill}%`);
+      });
+    }
+    grid.appendChild(cell);
+  }
 }
 
 function renderStatEntryRow(e, kind){
@@ -2077,6 +2371,9 @@ function renderStats(){
     renderDailyChart();
   }
   renderQuarterSummary();
+  renderTypeRanking();
+  renderBestHours();
+  renderHeatmapCalendar();
   renderAttendance();
   const range = getStatsRange();
   const periodWord = statsPeriodMode==='quarter' ? 'квартал' : 'місяць';
