@@ -383,7 +383,7 @@
   .cal-cell.lvl-4{background:var(--amber); color:#1A1300;}
   .cal-cell.today{box-shadow:0 0 0 2px var(--text) inset;}
   .cal-cell.picker{background:var(--surface2); color:var(--text); height:42px; border-radius:10px; font-size:14px;}
-  .cal-cell.picker.past{color:#444;}
+  .cal-cell.picker.past{background:var(--bg); color:#444; border:1px solid var(--line);}
   .cal-cell.picker.selected{background:var(--amber); color:#1A1300;}
   .cal-cell.selected{box-shadow:0 0 0 2px var(--teal) inset; transform:scale(1.06);}
   .heatmap-legend{display:flex; align-items:center; gap:6px; margin-top:14px; font-size:10.5px; color:var(--muted);}
@@ -1274,7 +1274,8 @@ function renderSaCalendar(){
     const dateStr = y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     const cell = document.createElement('div');
     const isSelected = dateStr===saSelectedDate;
-    cell.className = 'cal-cell picker'+(dateStr===today?' today':'')+(isSelected?' selected':'');
+    const isPast = dateStr < today;
+    cell.className = 'cal-cell picker'+(dateStr===today?' today':'')+(isSelected?' selected':'')+(isPast?' past':'');
     cell.textContent = d;
     cell.addEventListener('click', ()=>{
       saSelectedDate = dateStr;
