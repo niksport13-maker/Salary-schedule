@@ -382,6 +382,9 @@
   .cal-cell.lvl-3{background:#c98a2e; color:#1A1300;}
   .cal-cell.lvl-4{background:var(--amber); color:#1A1300;}
   .cal-cell.today{box-shadow:0 0 0 2px var(--text) inset;}
+  .cal-cell.picker{background:var(--surface2); color:var(--text); height:42px; border-radius:10px; font-size:14px;}
+  .cal-cell.picker.past{color:#444;}
+  .cal-cell.picker.selected{background:var(--amber); color:#1A1300;}
   .cal-cell.selected{box-shadow:0 0 0 2px var(--teal) inset; transform:scale(1.06);}
   .heatmap-legend{display:flex; align-items:center; gap:6px; margin-top:14px; font-size:10.5px; color:var(--muted);}
   .heatmap-legend .cell{width:14px; height:14px; border-radius:4px;}
@@ -848,7 +851,15 @@
 <div class="sheet-overlay" id="scheduleAddOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <h2 id="scheduleAddTitle">Додати в розклад</h2>
+    <h2>Додати в розклад</h2>
+    <div class="field">
+      <label>Дата</label>
+      <button class="week-picker-btn" id="saDateBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B93A1" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+        <span class="txt" id="saDateLabel">—</span>
+        <span class="chev">▾</span>
+      </button>
+    </div>
     <div class="row2">
       <div class="field">
         <label>Час</label>
@@ -877,6 +888,23 @@
     </div>
     <button class="save-btn" id="saSaveBtn">Додати</button>
     <button class="cancel-btn" id="saCancelBtn">Скасувати</button>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="saDatePickerOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>Обрати дату</h2>
+    <div class="month-nav">
+      <button id="saCalPrevMonth">‹</button>
+      <div class="m display" id="saCalMonthLabel">—</div>
+      <button id="saCalNextMonth">›</button>
+    </div>
+    <div class="cal-weekdays">
+      <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Нд</div>
+    </div>
+    <div class="cal-grid" id="saCalGrid"></div>
+    <button class="cancel-btn" id="saCalClose">Закрити</button>
   </div>
 </div>
 
@@ -1203,6 +1231,9 @@ function typesForClub(club){
   });
 }
 
+let saSelectedDate = null; // дата, обрана саме в панелі "Додати в розклад"
+let saCalViewYear = null, saCalViewMonth = null; // місяць, що зараз показує календар-picker
+
 function openScheduleAdd(){
   populateSelect('saTime', timeOptionsArray());
   populateSelect('saClub', CLUBS);
@@ -1210,10 +1241,68 @@ function openScheduleAdd(){
   document.getElementById('saCap').value='';
   document.getElementById('saRepeat').checked=false;
   document.getElementById('saSubstitution').checked=false;
-  const d = new Date(selectedScheduleDate+'T00:00:00');
-  document.getElementById('scheduleAddTitle').textContent = 'Додати в розклад · '+WEEKDAYS[d.getDay()]+', '+ddmmyyyy(selectedScheduleDate);
+  saSelectedDate = selectedScheduleDate;
+  updateSaDateLabel();
   document.getElementById('scheduleAddOverlay').classList.add('open');
 }
+
+function updateSaDateLabel(){
+  const d = new Date(saSelectedDate+'T00:00:00');
+  document.getElementById('saDateLabel').textContent = WEEKDAYS[d.getDay()]+', '+ddmmyyyy(saSelectedDate);
+}
+
+function renderSaCalendar(){
+  const [y,m] = [saCalViewYear, saCalViewMonth];
+  const monthDate = new Date(y, m-1, 1);
+  const label = monthDate.toLocaleDateString('uk-UA', {month:'long', year:'numeric'});
+  document.getElementById('saCalMonthLabel').textContent = label.charAt(0).toUpperCase()+label.slice(1);
+
+  const grid = document.getElementById('saCalGrid');
+  grid.innerHTML = '';
+  const firstDay = new Date(y, m-1, 1);
+  const nDays = new Date(y, m, 0).getDate();
+  let startOffset = firstDay.getDay();
+  startOffset = startOffset===0 ? 6 : startOffset-1;
+  for(let i=0;i<startOffset;i++){
+    const e = document.createElement('div');
+    e.className = 'cal-cell empty';
+    grid.appendChild(e);
+  }
+
+  const today = isoToday();
+  for(let d=1; d<=nDays; d++){
+    const dateStr = y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const cell = document.createElement('div');
+    const isSelected = dateStr===saSelectedDate;
+    cell.className = 'cal-cell picker'+(dateStr===today?' today':'')+(isSelected?' selected':'');
+    cell.textContent = d;
+    cell.addEventListener('click', ()=>{
+      saSelectedDate = dateStr;
+      updateSaDateLabel();
+      document.getElementById('saDatePickerOverlay').classList.remove('open');
+    });
+    grid.appendChild(cell);
+  }
+}
+
+document.getElementById('saDateBtn').addEventListener('click', ()=>{
+  const d = new Date(saSelectedDate+'T00:00:00');
+  saCalViewYear = d.getFullYear();
+  saCalViewMonth = d.getMonth()+1;
+  renderSaCalendar();
+  document.getElementById('saDatePickerOverlay').classList.add('open');
+});
+document.getElementById('saCalClose').addEventListener('click', ()=>{
+  document.getElementById('saDatePickerOverlay').classList.remove('open');
+});
+document.getElementById('saCalPrevMonth').addEventListener('click', ()=>{
+  saCalViewMonth--; if(saCalViewMonth<1){ saCalViewMonth=12; saCalViewYear--; }
+  renderSaCalendar();
+});
+document.getElementById('saCalNextMonth').addEventListener('click', ()=>{
+  saCalViewMonth++; if(saCalViewMonth>12){ saCalViewMonth=1; saCalViewYear++; }
+  renderSaCalendar();
+});
 
 function renderManageTemplates(){
   const box = document.getElementById('manageTemplatesList');
@@ -2924,14 +3013,19 @@ document.getElementById('saSaveBtn').addEventListener('click', ()=>{
   const cap = capVal ? Number(capVal) : null;
   const repeat = document.getElementById('saRepeat').checked;
   const substitution = document.getElementById('saSubstitution').checked;
+  const targetDate = saSelectedDate || selectedScheduleDate;
   if(repeat){
-    const weekday = new Date(selectedScheduleDate+'T00:00:00').getDay();
-    templates.push({id: genId(), weekday, time, type, club, cap, substitution, startDate: selectedScheduleDate});
+    const weekday = new Date(targetDate+'T00:00:00').getDay();
+    templates.push({id: genId(), weekday, time, type, club, cap, substitution, startDate: targetDate});
   } else {
-    extras.push({id: genId(), date: selectedScheduleDate, time, type, club, cap, substitution});
+    extras.push({id: genId(), date: targetDate, time, type, club, cap, substitution});
   }
   saveSchedule();
   document.getElementById('scheduleAddOverlay').classList.remove('open');
+  // якщо додали тренування на іншу дату, ніж та, що зараз відкрита в розкладі — перемикаємось на неї
+  if(targetDate !== selectedScheduleDate){
+    selectedScheduleDate = targetDate;
+  }
   renderDateStrip();
   renderScheduleList();
   renderList();
