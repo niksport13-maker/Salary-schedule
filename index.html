@@ -326,6 +326,22 @@
   }
   .sort-toggle .slider.right{transform:translateX(100%);}
 
+  .period-pill{
+    display:flex; background:var(--surface); border:1px solid var(--line); border-radius:999px;
+    padding:4px; position:relative;
+  }
+  .period-pill .slider{
+    position:absolute; top:4px; bottom:4px; left:4px; width:calc(50% - 4px);
+    background:var(--amber); border-radius:999px; transition:transform .25s ease; z-index:0;
+  }
+  .period-pill .slider.right{transform:translateX(100%);}
+  .period-pill .opt{
+    flex:1; text-align:center; padding:10px 0; border-radius:999px;
+    font-size:13.5px; font-weight:700; color:var(--muted); cursor:pointer;
+    position:relative; z-index:1; transition:color .2s;
+  }
+  .period-pill .opt.active{color:#1A1300;}
+
   .expand-btn{
     display:flex; align-items:center; justify-content:center; gap:6px;
     width:100%; background:var(--surface); border:1px solid var(--line); color:var(--muted);
@@ -656,9 +672,10 @@
 </div>
 
 <div id="statsView" style="display:none;">
-  <div class="period-tabs" style="margin-bottom:10px;">
-    <div class="tab active" data-statsperiod="month">Місяць</div>
-    <div class="tab" data-statsperiod="quarter">Квартал</div>
+  <div class="period-pill" style="margin-bottom:10px;">
+    <div class="slider" id="statsPeriodSlider"></div>
+    <div class="opt active" data-statsperiod="month">Місяць</div>
+    <div class="opt" data-statsperiod="quarter">Квартал</div>
   </div>
 
   <div class="field" id="statsMonthPickerWrap" style="margin:6px 2px 14px;">
@@ -2718,6 +2735,7 @@ document.querySelectorAll('[data-statsperiod]').forEach(tab=>{
 
     document.querySelectorAll('[data-statsperiod]').forEach(t=>t.classList.remove('active'));
     tab.classList.add('active');
+    document.getElementById('statsPeriodSlider').classList.toggle('right', newMode==='quarter');
 
     if(wasActive && statsPeriodMode===newMode){
       // повторний тап по вже активній вкладці — скидаємо на поточний місяць/квартал
