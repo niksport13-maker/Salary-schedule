@@ -480,6 +480,50 @@
   .sub-btn .ic{position:absolute; left:-38px; top:50%; transform:translateY(-50%);}
   .sub-btn .t{font-size:14px; font-weight:700;}
   .sub-btn .s{font-size:11.5px; color:var(--muted); margin-top:2px; font-weight:500;}
+
+  .extra-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:14px; margin-top:10px;
+  }
+  .extra-title{font-size:13px; font-weight:700; color:var(--text); margin-bottom:10px;}
+  .extra-row{
+    display:flex; align-items:center; gap:10px; padding:8px 0;
+    border-top:1px solid var(--line);
+  }
+  .extra-row:first-of-type{border-top:none;}
+  .extra-row .elabel{flex:1; font-size:13px; color:var(--text); min-width:0;}
+  .extra-row .esum{font-family:'Oswald',sans-serif; font-size:15px; color:var(--teal); white-space:nowrap;}
+  .extra-row .edel{background:none; border:none; color:var(--muted); font-size:16px; cursor:pointer; padding:2px 4px;}
+
+  .extra-add-row{display:flex; gap:6px; margin-top:10px;}
+  .extra-add-row input{
+    background:var(--surface2); border:1px solid var(--line); color:var(--text);
+    border-radius:10px; padding:10px 10px; font-size:13.5px; height:42px; box-sizing:border-box;
+    min-width:0;
+  }
+  .extra-add-row input.label-input{flex:1.6;}
+  .extra-add-row input.amount-input{flex:1; text-align:right;}
+  .extra-add-row button{
+    flex:0 0 42px; background:var(--amber); color:#1A1300; border:none; border-radius:10px;
+    font-weight:700; font-size:16px; cursor:pointer; height:42px;
+  }
+
+  .extra-total-row{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-top:12px; padding-top:12px; border-top:1px solid var(--line);
+    font-size:13px; color:var(--muted);
+  }
+  .extra-total-row b{color:var(--teal); font-family:'Oswald',sans-serif; font-size:16px;}
+
+  .grand-total{
+    background:linear-gradient(155deg, var(--surface2), var(--surface));
+    border:1px solid var(--amber); border-radius:14px;
+    padding:14px; margin-top:14px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .grand-total .lbl{font-size:12.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; font-weight:600;}
+  .grand-total .amt{font-family:'Oswald',sans-serif; font-size:24px; color:var(--amber); margin-top:2px;}
+  .grand-total .sub{font-size:11px; color:#555; margin-top:2px;}
   .manage-link{
     display:block; width:100%; background:none; border:none; color:var(--muted);
     font-size:11.5px; padding:10px 0 0; cursor:pointer; text-decoration:underline;
@@ -674,6 +718,30 @@
       <span>По клубах</span>
     </div>
     <div id="clubList"></div>
+
+    <div id="extraIncomeWrap" style="display:none;">
+      <div class="extra-card">
+        <div class="extra-title">Додаток до ЗП (чайові, бонуси тощо)</div>
+        <div id="extraIncomeList"></div>
+        <div class="extra-add-row">
+          <input class="label-input" type="text" id="extraLabelInput" placeholder="Опис (напр. Чайові)">
+          <input class="amount-input" type="number" id="extraAmountInput" placeholder="Сума">
+          <button id="extraAddBtn">+</button>
+        </div>
+        <div class="extra-total-row">
+          <span>Разом додатково</span>
+          <b id="extraTotalSum">+0₴</b>
+        </div>
+      </div>
+
+      <div class="grand-total">
+        <div>
+          <div class="lbl">Загалом за місяць</div>
+          <div class="sub">зарплата + додаток</div>
+        </div>
+        <div class="amt display" id="grandTotalSum">0₴</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -960,6 +1028,7 @@ let selectedWeekStart = null; // ISO date string, Monday of chosen week
 let templates = []; // recurring weekly schedule slots
 let skips = [];      // "templateId|date" occurrences removed for one week
 let extras = [];     // one-off (non-recurring) schedule additions
+let extraIncome = {}; // {'YYYY-MM': [{id, label, amount}]} — чайові/додатковий заробіток по місяцях
 let selectedScheduleDate = isoToday();
 let fillContext = null;
 let detailContext = null;
@@ -1438,6 +1507,7 @@ async function loadData(){
   try{ templates = JSON.parse(localStorage.getItem('trener_templates') || '[]'); }catch(e){ templates = []; }
   try{ skips = JSON.parse(localStorage.getItem('trener_skips') || '[]'); }catch(e){ skips = []; }
   try{ extras = JSON.parse(localStorage.getItem('trener_extras') || '[]'); }catch(e){ extras = []; }
+  try{ extraIncome = JSON.parse(localStorage.getItem('trener_extraIncome') || '{}'); }catch(e){ extraIncome = {}; }
 
   // one-time migration: rename club "Garag" -> "Garage" everywhere it's stored
   let migrated = false;
@@ -1477,6 +1547,11 @@ function saveSchedule(){
   queueCloudSync();
 }
 
+function saveExtraIncome(){
+  try{ localStorage.setItem('trener_extraIncome', JSON.stringify(extraIncome)); }catch(e){}
+  queueCloudSync();
+}
+
 /* ===================== FIREBASE AUTH + CLOUD SYNC ===================== */
 /* Ця частина не виконується одразу — вона чекає, поки завантажаться Firebase-скрипти
    (це може зайняти час на повільному інтернеті). Локальні дані та інтерфейс
@@ -1509,7 +1584,7 @@ async function pushToCloud(){
   if(!currentUser || !db) return;
   try{
     await db.collection('users').doc(currentUser.uid).set({
-      entries, types, templates, skips, extras,
+      entries, types, templates, skips, extras, extraIncome,
       email: currentUser.email,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, {merge:true});
@@ -1538,12 +1613,14 @@ function resetLocalDataToEmpty(){
   templates = [];
   skips = [];
   extras = [];
+  extraIncome = {};
   try{
     localStorage.setItem('trener_trainings', JSON.stringify(entries));
     localStorage.setItem('trener_trainingTypes', JSON.stringify(types));
     localStorage.setItem('trener_templates', JSON.stringify(templates));
     localStorage.setItem('trener_skips', JSON.stringify(skips));
     localStorage.setItem('trener_extras', JSON.stringify(extras));
+    localStorage.setItem('trener_extraIncome', JSON.stringify(extraIncome));
   }catch(e){}
 }
 
@@ -1574,12 +1651,14 @@ async function pullFromCloudOrMigrate(){
     templates = Array.isArray(d.templates) ? d.templates : templates;
     skips = Array.isArray(d.skips) ? d.skips : skips;
     extras = Array.isArray(d.extras) ? d.extras : extras;
+    extraIncome = (d.extraIncome && typeof d.extraIncome==='object') ? d.extraIncome : extraIncome;
     try{
       localStorage.setItem('trener_trainings', JSON.stringify(entries));
       localStorage.setItem('trener_trainingTypes', JSON.stringify(types));
       localStorage.setItem('trener_templates', JSON.stringify(templates));
       localStorage.setItem('trener_skips', JSON.stringify(skips));
       localStorage.setItem('trener_extras', JSON.stringify(extras));
+      localStorage.setItem('trener_extraIncome', JSON.stringify(extraIncome));
     }catch(e){}
     suppressNextSync = false;
     // існуючий користувач — оновлюємо лише lastLoginAt, дату реєстрації не чіпаємо
@@ -1918,6 +1997,7 @@ function renderList(){
 
   renderMonthSubstitutions();
   renderClubStats(periodList, total);
+  renderExtraIncome(total);
 }
 
 function avgFillOf(list){
@@ -2025,6 +2105,52 @@ function renderClubStats(list, total){
   `;
   box.appendChild(totalRow);
 }
+
+function renderExtraIncome(clubTotal){
+  const wrap = document.getElementById('extraIncomeWrap');
+  if(currentPeriod!=='month'){
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = '';
+
+  const list = extraIncome[selectedMonth] || [];
+  const box = document.getElementById('extraIncomeList');
+  box.innerHTML = '';
+  list.forEach(item=>{
+    const row = document.createElement('div');
+    row.className = 'extra-row';
+    row.innerHTML = `
+      <div class="elabel">${item.label || 'Без опису'}</div>
+      <div class="esum">+${item.amount.toLocaleString('uk-UA')}₴</div>
+      <button class="edel" data-id="${item.id}">✕</button>
+    `;
+    row.querySelector('.edel').addEventListener('click', ()=>{
+      extraIncome[selectedMonth] = (extraIncome[selectedMonth]||[]).filter(x=>x.id!==item.id);
+      saveExtraIncome();
+      renderExtraIncome(clubTotal);
+    });
+    box.appendChild(row);
+  });
+
+  const extraSum = list.reduce((a,x)=>a+x.amount, 0);
+  document.getElementById('extraTotalSum').textContent = '+'+extraSum.toLocaleString('uk-UA')+'₴';
+  document.getElementById('grandTotalSum').textContent = (clubTotal+extraSum).toLocaleString('uk-UA')+'₴';
+}
+
+document.getElementById('extraAddBtn').addEventListener('click', ()=>{
+  const labelInput = document.getElementById('extraLabelInput');
+  const amountInput = document.getElementById('extraAmountInput');
+  const amount = Number(amountInput.value);
+  if(!amount || amount<=0){ showToast('Введи суму'); return; }
+  if(!extraIncome[selectedMonth]) extraIncome[selectedMonth] = [];
+  extraIncome[selectedMonth].push({id: genId(), label: labelInput.value.trim(), amount});
+  saveExtraIncome();
+  labelInput.value = '';
+  amountInput.value = '';
+  renderList();
+  showToast('Додано ✓');
+});
 
 function renderEssential(){
   renderHeader();
@@ -2919,7 +3045,7 @@ document.getElementById('clubOverlay').addEventListener('click', (e)=>{
 });
 
 document.getElementById('exportBtn').addEventListener('click', ()=>{
-  const payload = JSON.stringify({entries, types, templates, skips, extras}, null, 2);
+  const payload = JSON.stringify({entries, types, templates, skips, extras, extraIncome}, null, 2);
   const blob = new Blob([payload], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -2949,9 +3075,11 @@ document.getElementById('importFile').addEventListener('change', async (e)=>{
     templates = Array.isArray(data.templates) ? data.templates : [];
     skips = Array.isArray(data.skips) ? data.skips : [];
     extras = Array.isArray(data.extras) ? data.extras : [];
+    extraIncome = (data.extraIncome && typeof data.extraIncome==='object') ? data.extraIncome : {};
     await saveEntries();
     await saveTypes();
     saveSchedule();
+    saveExtraIncome();
     renderAll();
     renderDateStrip();
     renderScheduleList();
