@@ -2200,9 +2200,7 @@ function renderTypeRanking(){
   block.style.display = '';
 
   const range = getStatsRange();
-  const rangeEntries = entries.filter(e=>e.cap && entryInRange(e, range) && !isSubstitutionEntry(e));
-
-  // групуємо за парою "тип + клуб"
+  const rangeEntries = entries.filter(e=>e.cap && e.count>0 && entryInRange(e, range) && !isSubstitutionEntry(e));
   const groups = {};
   rangeEntries.forEach(e=>{
     const key = e.type+'|'+(e.club||'');
