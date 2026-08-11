@@ -659,6 +659,8 @@
     <input type="month" id="monthPicker">
   </div>
 
+  <div id="monthSubstitutionsWrap" style="display:none;"></div>
+
   <div id="sectionEntries">
     <div class="section-title">
       <span id="periodTitle">Тренування сьогодні</span>
@@ -1914,6 +1916,7 @@ function renderList(){
     });
   }
 
+  renderMonthSubstitutions();
   renderClubStats(periodList, total);
 }
 
@@ -1948,14 +1951,22 @@ function createSubstitutionsButton(){
   return subBtn;
 }
 
+function renderMonthSubstitutions(){
+  const wrap = document.getElementById('monthSubstitutionsWrap');
+  if(currentPeriod!=='month'){
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = '';
+  wrap.innerHTML = '';
+  wrap.appendChild(createSubstitutionsButton());
+}
+
 function renderClubStats(list, total){
   const box = document.getElementById('clubList');
   box.innerHTML='';
   if(!list.length){
     box.innerHTML = '<div class="empty">Немає даних по клубах за цей період</div>';
-    if(currentPeriod==='month'){
-      box.appendChild(createSubstitutionsButton());
-    }
     return;
   }
   const showFill = currentPeriod==='month' || currentPeriod==='week' || currentPeriod==='today';
@@ -2013,10 +2024,6 @@ function renderClubStats(list, total){
     <div class="money display" style="color:var(--amber)">${total.toLocaleString('uk-UA')}₴</div>
   `;
   box.appendChild(totalRow);
-
-  if(currentPeriod==='month'){
-    box.appendChild(createSubstitutionsButton());
-  }
 }
 
 function renderEssential(){
