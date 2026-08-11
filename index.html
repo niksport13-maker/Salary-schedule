@@ -375,7 +375,7 @@
     height:38px; width:100%; border-radius:8px; display:flex; align-items:center; justify-content:center;
     font-size:12px; font-weight:600; position:relative; cursor:pointer; box-sizing:border-box;
   }
-  .cal-cell.empty{visibility:hidden; cursor:default;}
+  .cal-cell.cal-empty-slot{visibility:hidden; cursor:default;}
   .cal-cell.lvl-0{background:var(--surface2); border:1px solid var(--line); color:#555; cursor:default;}
   .cal-cell.lvl-1{background:#3d3320; color:#c9a35f;}
   .cal-cell.lvl-2{background:#7a5a1f; color:var(--text);}
@@ -394,6 +394,7 @@
   }
   .cal-selected-info b{color:var(--text); font-family:'Oswald',sans-serif; font-weight:600;}
   .cal-day-entry{display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--line);}
+  .cal-day-entry.substitution{border-left:2px solid var(--danger); padding-left:8px;}
   .cal-day-entry:first-of-type{border-top:none;}
   .cal-day-entry .cdt{font-family:'Oswald',sans-serif; font-size:12.5px; color:var(--amber); min-width:38px;}
   .cal-day-entry .cdmid{flex:1; min-width:0;}
@@ -1265,7 +1266,7 @@ function renderSaCalendar(){
   startOffset = startOffset===0 ? 6 : startOffset-1;
   for(let i=0;i<startOffset;i++){
     const e = document.createElement('div');
-    e.className = 'cal-cell empty';
+    e.className = 'cal-cell cal-empty-slot';
     grid.appendChild(e);
   }
 
@@ -2411,7 +2412,7 @@ function renderHeatmapCalendar(){
   infoBox.textContent = 'Тапни на день, щоб побачити деталі';
   for(let i=0;i<startOffset;i++){
     const empty = document.createElement('div');
-    empty.className = 'cal-cell empty';
+    empty.className = 'cal-cell cal-empty-slot';
     grid.appendChild(empty);
   }
 
@@ -2434,11 +2435,13 @@ function renderHeatmapCalendar(){
         const sortedList = dayData.list.slice().sort((a,b)=>a.time.localeCompare(b.time));
         const rowsHtml = sortedList.map(e=>{
           const fill = Math.round((e.count/e.cap)*100);
+          const isSub = isSubstitutionEntry(e);
+          const subBadge = isSub ? '<span class="sub-badge">Заміна</span>' : '';
           return `
-            <div class="cal-day-entry">
+            <div class="cal-day-entry${isSub ? ' substitution' : ''}">
               <div class="cdt">${e.time}</div>
               <div class="cdmid">
-                <div class="cdtype">${e.type}${e.club ? ` <span style="color:var(--muted); font-weight:500;">· ${e.club}</span>` : ''}</div>
+                <div class="cdtype">${e.type}${e.club ? ` <span style="color:var(--muted); font-weight:500;">· ${e.club}</span>` : ''}${subBadge}</div>
                 <div class="cdmeta">${e.count}/${e.cap} людей · ${fill}%</div>
               </div>
               <div class="cdpay">${e.pay}₴</div>
