@@ -2200,19 +2200,20 @@ function renderTypeRanking(){
   block.style.display = '';
 
   const range = getStatsRange();
-  const rangeEntries = entries.filter(e=>e.cap && e.count>0 && entryInRange(e, range) && !isSubstitutionEntry(e));
+  const rangeEntries = entries.filter(e=>e.cap && entryInRange(e, range) && !isSubstitutionEntry(e));
   const groups = {};
   rangeEntries.forEach(e=>{
     const key = e.type+'|'+(e.club||'');
-    if(!groups[key]) groups[key] = {type:e.type, club:e.club||'', sumFill:0, count:0, sumPay:0};
-    groups[key].sumFill += (e.count/e.cap);
-    groups[key].count++;
+    if(!groups[key]) groups[key] = {type:e.type, club:e.club||'', sumFill:0, totalCount:0, realCount:0, sumPay:0};
+    groups[key].sumFill += (e.count/e.cap); // включно з "порожніми" (0 людей) — реальна картина заповненості
+    groups[key].totalCount++;
+    if(e.count>0) groups[key].realCount++; // лише фактично проведені тренування
     groups[key].sumPay += e.pay;
   });
 
   const list = Object.values(groups).map(g=>({
-    type:g.type, club:g.club, count:g.count, sumPay:g.sumPay,
-    avgFill: Math.round((g.sumFill/g.count)*100)
+    type:g.type, club:g.club, totalCount:g.totalCount, realCount:g.realCount, sumPay:g.sumPay,
+    avgFill: Math.round((g.sumFill/g.totalCount)*100)
   })).sort((a,b)=> typeRankingSortMode==='sum' ? (b.sumPay-a.sumPay) : (b.avgFill-a.avgFill));
 
   const box = document.getElementById('typeRankingList');
@@ -2230,11 +2231,12 @@ function renderTypeRanking(){
   list.forEach((g,i)=>{
     const row = document.createElement('div');
     row.className = 'rank-row'+(i===0?' top1':'');
+    const displayCount = typeRankingSortMode==='sum' ? g.realCount : g.totalCount;
     row.innerHTML = `
       <div class="rnum display">${i+1}</div>
       <div class="rmid">
         <div class="rtype">${g.type}${g.club ? ` <span style="color:var(--muted); font-weight:500;">· ${g.club}</span>` : ''}</div>
-        <div class="rmeta"><span>${g.count} тренувань</span><span class="rsum">${g.sumPay.toLocaleString('uk-UA')}₴</span></div>
+        <div class="rmeta"><span>${displayCount} тренувань</span><span class="rsum">${g.sumPay.toLocaleString('uk-UA')}₴</span></div>
         <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${g.avgFill}%; background:${fillBarColor(g.avgFill)};"></div></div>
       </div>
       <div class="rfill display ${fillLevelClass(g.avgFill)}">${g.avgFill}%</div>
