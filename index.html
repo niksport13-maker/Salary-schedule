@@ -120,6 +120,11 @@
     display:flex; justify-content:space-between; align-items:center;
   }
   .section-title .count{color:var(--teal); font-family:'Oswald',sans-serif;}
+  .cal-icon-btn{
+    background:var(--surface); border:1px solid var(--line); color:var(--muted);
+    border-radius:10px; width:32px; height:32px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; flex-shrink:0;
+  }
 
   .period-tabs{display:flex; gap:8px; margin-bottom:6px;}
   .tab{
@@ -381,6 +386,7 @@
   .cal-cell.lvl-2{background:#7a5a1f; color:var(--text);}
   .cal-cell.lvl-3{background:#c98a2e; color:#1A1300;}
   .cal-cell.lvl-4{background:var(--amber); color:#1A1300;}
+  .cal-cell.lvl-unfilled{background:#1E2126; color:#8B93A1;}
   .cal-cell.today{box-shadow:0 0 0 2px var(--text) inset;}
   .cal-cell.picker{background:var(--surface2); color:var(--text); height:42px; border-radius:10px; font-size:14px;}
   .cal-cell.picker.past{background:var(--surface2); color:#5A6270; opacity:.55;}
@@ -691,7 +697,12 @@
   </div>
 
   <div class="schedule-section">
-    <div class="section-title"><span>Розклад</span></div>
+    <div class="section-title">
+      <span>Розклад</span>
+      <button class="cal-icon-btn" id="openTodayCalBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+      </button>
+    </div>
     <div class="date-strip" id="dateStrip"></div>
     <div class="schedule-date-label" id="scheduleDateLabel"></div>
     <div id="scheduleList"></div>
@@ -992,6 +1003,32 @@
     </div>
     <div class="cal-grid" id="saCalGrid"></div>
     <button class="cancel-btn" id="saCalClose">Закрити</button>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="todayCalOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="month-nav">
+      <button id="todayCalPrevMonth">‹</button>
+      <div class="m display" id="todayCalMonthLabel">—</div>
+      <button id="todayCalNextMonth">›</button>
+    </div>
+    <div class="cal-weekdays">
+      <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Нд</div>
+    </div>
+    <div class="cal-grid" id="todayCalGrid"></div>
+    <div class="heatmap-legend">
+      <span>Менше</span>
+      <div class="cell lvl-0"></div>
+      <div class="cell lvl-1"></div>
+      <div class="cell lvl-2"></div>
+      <div class="cell lvl-3"></div>
+      <div class="cell lvl-4"></div>
+      <span>Більше</span>
+    </div>
+    <div class="cal-selected-info" id="todayCalSelectedInfo">Тапни на день, щоб побачити деталі</div>
+    <button class="cancel-btn" id="todayCalClose">Закрити</button>
   </div>
 </div>
 
@@ -1487,6 +1524,122 @@ function renderWeekPickerMonth(){
     box.appendChild(row);
   });
 }
+
+let todayCalViewYear = null, todayCalViewMonth = null;
+
+function renderTodayCalendar(){
+  const y = todayCalViewYear, m = todayCalViewMonth;
+  const monthDate = new Date(y, m-1, 1);
+  const label = monthDate.toLocaleDateString('uk-UA', {month:'long', year:'numeric'});
+  document.getElementById('todayCalMonthLabel').textContent = label.charAt(0).toUpperCase()+label.slice(1);
+
+  const firstDay = new Date(y, m-1, 1);
+  const nDays = new Date(y, m, 0).getDate();
+  let startOffset = firstDay.getDay();
+  startOffset = startOffset===0 ? 6 : startOffset-1;
+
+  const grid = document.getElementById('todayCalGrid');
+  grid.innerHTML = '';
+  const infoBox = document.getElementById('todayCalSelectedInfo');
+  infoBox.textContent = 'Тапни на день, щоб побачити деталі';
+  for(let i=0;i<startOffset;i++){
+    const empty = document.createElement('div');
+    empty.className = 'cal-cell cal-empty-slot';
+    grid.appendChild(empty);
+  }
+
+  const monthKey = y+'-'+String(m).padStart(2,'0');
+  const today = isoToday();
+  let selectedCell = null;
+  for(let d=1; d<=nDays; d++){
+    const dateStr = monthKey+'-'+String(d).padStart(2,'0');
+    const scheduleItems = getScheduleForDate(dateStr);
+    const filled = scheduleItems.filter(it=>it.entry);
+    const unfilled = scheduleItems.filter(it=>!it.entry);
+    const hasSub = scheduleItems.some(it=>it.substitution);
+    const isFullyUnfilled = unfilled.length>0 && filled.length===0;
+
+    const avgFill = filled.length
+      ? Math.round((filled.reduce((a,it)=>a+(it.entry.count/it.entry.cap),0)/filled.length)*100)
+      : 0;
+    const lvl = fillToLevel(avgFill);
+
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell'+(isFullyUnfilled ? ' lvl-unfilled' : ' lvl-'+lvl)+(dateStr===today ? ' today' : '');
+    const dotsWrap = hasSub ? '<div style="display:flex; gap:3px;"><span class="sub-dot" style="width:4px; height:4px; border-radius:50%; background:var(--danger);"></span></div>' : '';
+    cell.innerHTML = '<span>'+d+'</span>' + dotsWrap;
+
+    cell.addEventListener('click', ()=>{
+      if(selectedCell) selectedCell.classList.remove('selected');
+      cell.classList.add('selected');
+      selectedCell = cell;
+
+      if(!scheduleItems.length){
+        infoBox.innerHTML = `<b>${ddmmyyyy(dateStr)}</b><br>На цю дату немає запланованих тренувань`;
+        return;
+      }
+
+      const sortedFilled = filled.slice().sort((a,b)=>a.time.localeCompare(b.time));
+      const sortedUnfilled = unfilled.slice().sort((a,b)=>a.time.localeCompare(b.time));
+
+      let html = `<b>${ddmmyyyy(dateStr)}</b>`;
+      if(sortedFilled.length){
+        html += ` · ${sortedFilled.length} тренувань · сер. заповненість ${avgFill}%`;
+      }
+
+      html += sortedFilled.map(it=>{
+        const e = it.entry;
+        const fill = Math.round((e.count/e.cap)*100);
+        const subBadge = it.substitution ? '<span class="sub-badge">Заміна</span>' : '';
+        return `
+          <div class="cal-day-entry${it.substitution ? ' substitution' : ''}">
+            <div class="cdt">${it.time}</div>
+            <div class="cdmid">
+              <div class="cdtype">${it.type}${it.club ? ` <span style="color:var(--muted); font-weight:500;">· ${it.club}</span>` : ''}${subBadge}</div>
+              <div class="cdmeta">${e.count}/${e.cap} людей · ${fill}%</div>
+            </div>
+            <div class="cdpay">${e.pay}₴</div>
+          </div>
+        `;
+      }).join('');
+
+      html += sortedUnfilled.map(it=>{
+        const subBadge = it.substitution ? '<span class="sub-badge">Заміна</span>' : '';
+        return `
+          <div class="cal-day-entry${it.substitution ? ' substitution' : ''}">
+            <div class="cdt">${it.time}</div>
+            <div class="cdmid">
+              <div class="cdtype">${it.type}${it.club ? ` <span style="color:var(--muted); font-weight:500;">· ${it.club}</span>` : ''}${subBadge}</div>
+              <div class="cdmeta" style="color:var(--amber);">Ще не заповнено</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      infoBox.innerHTML = html;
+    });
+    grid.appendChild(cell);
+  }
+}
+
+document.getElementById('openTodayCalBtn').addEventListener('click', ()=>{
+  const d = new Date(selectedScheduleDate+'T00:00:00');
+  todayCalViewYear = d.getFullYear();
+  todayCalViewMonth = d.getMonth()+1;
+  renderTodayCalendar();
+  document.getElementById('todayCalOverlay').classList.add('open');
+});
+document.getElementById('todayCalClose').addEventListener('click', ()=>{
+  document.getElementById('todayCalOverlay').classList.remove('open');
+});
+document.getElementById('todayCalPrevMonth').addEventListener('click', ()=>{
+  todayCalViewMonth--; if(todayCalViewMonth<1){ todayCalViewMonth=12; todayCalViewYear--; }
+  renderTodayCalendar();
+});
+document.getElementById('todayCalNextMonth').addEventListener('click', ()=>{
+  todayCalViewMonth++; if(todayCalViewMonth>12){ todayCalViewMonth=1; todayCalViewYear++; }
+  renderTodayCalendar();
+});
 
 function openWeekPicker(){
   wpMonth = (selectedWeekStart || isoToday()).slice(0,7);
@@ -2546,15 +2699,6 @@ function renderHeatmapCalendar(){
   let startOffset = firstDay.getDay();
   startOffset = startOffset===0 ? 6 : startOffset-1; // понеділок = 0
 
-  // групуємо тренування по конкретній даті
-  const byDate = {};
-  entries.filter(e=>e.cap && e.date.startsWith(selectedStatsMonth)).forEach(e=>{
-    if(!byDate[e.date]) byDate[e.date] = {sumFill:0, count:0, list:[]};
-    byDate[e.date].sumFill += (e.count/e.cap);
-    byDate[e.date].count++;
-    byDate[e.date].list.push(e);
-  });
-
   const grid = document.getElementById('calGrid');
   grid.innerHTML = '';
   const infoBox = document.getElementById('calSelectedInfo');
@@ -2569,38 +2713,71 @@ function renderHeatmapCalendar(){
   let selectedCell = null;
   for(let d=1; d<=nDays; d++){
     const dateStr = selectedStatsMonth+'-'+String(d).padStart(2,'0');
-    const dayData = byDate[dateStr];
-    const avgFill = dayData ? Math.round((dayData.sumFill/dayData.count)*100) : 0;
+    const scheduleItems = getScheduleForDate(dateStr);
+    const filled = scheduleItems.filter(it=>it.entry);
+    const unfilled = scheduleItems.filter(it=>!it.entry);
+    const hasSub = scheduleItems.some(it=>it.substitution);
+    const isFullyUnfilled = unfilled.length>0 && filled.length===0;
+
+    const avgFill = filled.length
+      ? Math.round((filled.reduce((a,it)=>a+(it.entry.count/it.entry.cap),0)/filled.length)*100)
+      : 0;
     const lvl = fillToLevel(avgFill);
+
     const cell = document.createElement('div');
-    cell.className = 'cal-cell lvl-'+lvl + (dateStr===today ? ' today' : '');
-    cell.textContent = d;
-    if(dayData){
-      cell.addEventListener('click', ()=>{
-        if(selectedCell) selectedCell.classList.remove('selected');
-        cell.classList.add('selected');
-        selectedCell = cell;
+    cell.className = 'cal-cell'+(isFullyUnfilled ? ' lvl-unfilled' : ' lvl-'+lvl)+(dateStr===today ? ' today' : '');
+    const dotsWrap = hasSub ? '<div style="display:flex; gap:3px;"><span class="sub-dot" style="width:4px; height:4px; border-radius:50%; background:var(--danger);"></span></div>' : '';
+    cell.innerHTML = '<span>'+d+'</span>' + dotsWrap;
 
-        const sortedList = dayData.list.slice().sort((a,b)=>a.time.localeCompare(b.time));
-        const rowsHtml = sortedList.map(e=>{
-          const fill = Math.round((e.count/e.cap)*100);
-          const isSub = isSubstitutionEntry(e);
-          const subBadge = isSub ? '<span class="sub-badge">Заміна</span>' : '';
-          return `
-            <div class="cal-day-entry${isSub ? ' substitution' : ''}">
-              <div class="cdt">${e.time}</div>
-              <div class="cdmid">
-                <div class="cdtype">${e.type}${e.club ? ` <span style="color:var(--muted); font-weight:500;">· ${e.club}</span>` : ''}${subBadge}</div>
-                <div class="cdmeta">${e.count}/${e.cap} людей · ${fill}%</div>
-              </div>
-              <div class="cdpay">${e.pay}₴</div>
+    cell.addEventListener('click', ()=>{
+      if(selectedCell) selectedCell.classList.remove('selected');
+      cell.classList.add('selected');
+      selectedCell = cell;
+
+      if(!scheduleItems.length){
+        infoBox.innerHTML = `<b>${ddmmyyyy(dateStr)}</b><br>На цю дату немає запланованих тренувань`;
+        return;
+      }
+
+      const sortedFilled = filled.slice().sort((a,b)=>a.time.localeCompare(b.time));
+      const sortedUnfilled = unfilled.slice().sort((a,b)=>a.time.localeCompare(b.time));
+
+      let html = `<b>${ddmmyyyy(dateStr)}</b>`;
+      if(sortedFilled.length){
+        html += ` · ${sortedFilled.length} тренувань · сер. заповненість ${avgFill}%`;
+      }
+
+      html += sortedFilled.map(it=>{
+        const e = it.entry;
+        const fill = Math.round((e.count/e.cap)*100);
+        const subBadge = it.substitution ? '<span class="sub-badge">Заміна</span>' : '';
+        return `
+          <div class="cal-day-entry${it.substitution ? ' substitution' : ''}">
+            <div class="cdt">${it.time}</div>
+            <div class="cdmid">
+              <div class="cdtype">${it.type}${it.club ? ` <span style="color:var(--muted); font-weight:500;">· ${it.club}</span>` : ''}${subBadge}</div>
+              <div class="cdmeta">${e.count}/${e.cap} людей · ${fill}%</div>
             </div>
-          `;
-        }).join('');
+            <div class="cdpay">${e.pay}₴</div>
+          </div>
+        `;
+      }).join('');
 
-        infoBox.innerHTML = `<b>${ddmmyyyy(dateStr)}</b> · ${dayData.count} тренувань · сер. заповненість ${avgFill}%` + rowsHtml;
-      });
-    }
+      html += sortedUnfilled.map(it=>{
+        const subBadge = it.substitution ? '<span class="sub-badge">Заміна</span>' : '';
+        return `
+          <div class="cal-day-entry${it.substitution ? ' substitution' : ''}">
+            <div class="cdt">${it.time}</div>
+            <div class="cdmid">
+              <div class="cdtype">${it.type}${it.club ? ` <span style="color:var(--muted); font-weight:500;">· ${it.club}</span>` : ''}${subBadge}</div>
+              <div class="cdmeta" style="color:var(--amber);">Ще не заповнено</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      infoBox.innerHTML = html;
+    });
     grid.appendChild(cell);
   }
 }
