@@ -377,7 +377,7 @@
   .cal-weekdays div{text-align:center; font-size:10px; color:var(--muted); font-weight:600;}
   .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); grid-auto-rows:min-content; align-content:start; gap:5px; width:100%;}
   .cal-cell{
-    height:38px; width:100%; border-radius:8px; display:flex; align-items:center; justify-content:center;
+    height:38px; width:100%; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
     font-size:12px; font-weight:600; position:relative; cursor:pointer; box-sizing:border-box;
   }
   .cal-cell.cal-empty-slot{visibility:hidden; cursor:default;}
@@ -397,6 +397,7 @@
   .cal-selected-info{
     margin-top:12px; padding:10px 12px; background:var(--surface); border:1px solid var(--line);
     border-radius:10px; font-size:12.5px; color:var(--muted); min-height:18px;
+    max-height:240px; overflow-y:auto;
   }
   .cal-selected-info b{color:var(--text); font-family:'Oswald',sans-serif; font-weight:600;}
   .cal-day-entry{display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--line);}
