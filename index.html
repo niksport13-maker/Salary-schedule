@@ -1027,6 +1027,7 @@
       <div class="cell lvl-4"></div>
     </div>
     <div class="cal-selected-info" id="todayCalSelectedInfo">Тапни на день, щоб побачити деталі</div>
+    <div style="font-size:11px; color:#555; margin-top:10px; line-height:1.5;">Подвійний тап на дату відкриває цей день у розкладі — можна додати чи видалити тренування.</div>
     <button class="cancel-btn" id="todayCalClose">Закрити</button>
   </div>
 </div>
@@ -1550,6 +1551,7 @@ function renderTodayCalendar(){
   const monthKey = y+'-'+String(m).padStart(2,'0');
   const today = isoToday();
   let selectedCell = null;
+  let lastTap = {dateStr:null, time:0};
   for(let d=1; d<=nDays; d++){
     const dateStr = monthKey+'-'+String(d).padStart(2,'0');
     const scheduleItems = getScheduleForDate(dateStr);
@@ -1569,6 +1571,15 @@ function renderTodayCalendar(){
     cell.innerHTML = '<span>'+d+'</span>' + dotsWrap;
 
     cell.addEventListener('click', ()=>{
+      const now = Date.now();
+      if(lastTap.dateStr===dateStr && (now-lastTap.time)<350){
+        // подвійний тап — одразу відкриваємо цю дату в розкладі на головному екрані
+        lastTap = {dateStr:null, time:0};
+        jumpToDateInSchedule(dateStr);
+        return;
+      }
+      lastTap = {dateStr, time:now};
+
       if(selectedCell) selectedCell.classList.remove('selected');
       cell.classList.add('selected');
       selectedCell = cell;
@@ -1620,6 +1631,25 @@ function renderTodayCalendar(){
     });
     grid.appendChild(cell);
   }
+}
+
+// Подвійний тап по даті в тепловій карті "Сьогодні" — закриває панель і одразу
+// відкриває цю дату у звичайному розкладі (вкладка "Сьогодні"), щоб можна було
+// додати чи видалити тренування.
+function jumpToDateInSchedule(dateStr){
+  document.getElementById('todayCalOverlay').classList.remove('open');
+
+  currentPeriod = 'today';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.period==='today'));
+  document.getElementById('weekPickerWrap').style.display = 'none';
+  document.getElementById('monthPickerWrap').style.display = 'none';
+  document.querySelector('.schedule-section').style.display = '';
+
+  selectedScheduleDate = dateStr;
+  renderDateStrip();
+  renderScheduleList();
+  renderList();
+  showToast('Відкрито '+ddmmyyyy(dateStr)+' у розкладі');
 }
 
 document.getElementById('openTodayCalBtn').addEventListener('click', ()=>{
