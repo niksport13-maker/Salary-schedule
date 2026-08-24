@@ -952,8 +952,8 @@
     <div class="detail-section-title">Загальна статистика</div>
     <div class="detail-stat-row">
       <div class="detail-stat-chip">
-        <div class="num display" id="mdCount">0</div>
-        <div class="lbl2">тренувань</div>
+        <div class="num display"><span id="mdCountPaid">0</span><span style="font-size:12px; color:var(--muted); font-weight:500;"> / <span id="mdCount">0</span></span></div>
+        <div class="lbl2">проведено / загалом</div>
       </div>
       <div class="detail-stat-chip">
         <div class="num display" id="mdFill">—</div>
@@ -2541,13 +2541,14 @@ function renderQuarterSummary(){
     const monthKey = year+'-'+String(m).padStart(2,'0');
     const mEntries = entries.filter(e=>e.date.startsWith(monthKey));
     const mPaid = mEntries.filter(e=>e.cap);
+    const mConducted = mEntries.filter(e=>e.count>0).length;
     const mSalary = mEntries.reduce((a,e)=>a+e.pay,0);
     const mExtraList = extraIncome[monthKey] || [];
     const mExtraSum = mExtraList.reduce((a,x)=>a+x.amount,0);
     const mFill = mPaid.length ? Math.round((mPaid.reduce((a,e)=>a+(e.count/e.cap),0)/mPaid.length)*100) : null;
     monthsData.push({
       monthKey, name: MONTH_SHORT_UA[m-1], salary: mSalary, extra: mExtraSum,
-      sum: mSalary+mExtraSum, fill: mFill, count: mEntries.length
+      sum: mSalary+mExtraSum, fill: mFill, count: mEntries.length, conducted: mConducted
     });
   }
   const quarterExtraSum = monthsData.reduce((a,m)=>a+m.extra,0);
@@ -2587,6 +2588,7 @@ function openMonthDetail(m){
   document.getElementById('mdSalary').textContent = m.salary.toLocaleString('uk-UA')+'₴';
   document.getElementById('mdExtra').textContent = '+'+m.extra.toLocaleString('uk-UA')+'₴';
   document.getElementById('mdCount').textContent = m.count;
+  document.getElementById('mdCountPaid').textContent = m.conducted;
   document.getElementById('mdFill').textContent = m.fill===null ? '—' : m.fill+'%';
 
   const list = extraIncome[m.monthKey] || [];
