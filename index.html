@@ -830,7 +830,6 @@
     <div class="sub-tab" data-substat="thresholds">Заповненість &gt;80%, &lt;30%</div>
     <div class="sub-tab" data-substat="ranking" id="rankingSubTab" style="display:none;">Рейтинг тренувань</div>
     <div class="sub-tab" data-substat="hours" id="hoursSubTab" style="display:none;">Найкращі години</div>
-    <div class="sub-tab" data-substat="heatmap" id="heatmapSubTab" style="grid-column:1 / -1;">Теплова карта місяця</div>
   </div>
 
   <div id="attendanceView">
@@ -873,27 +872,6 @@
       <div id="bestHoursList"></div>
       <div id="bestHoursHidden" class="hidden-rows"></div>
       <button class="expand-btn" id="bestHoursExpandBtn">Показати ще <span class="chev">▾</span></button>
-    </div>
-  </div>
-
-  <div id="heatmapView" style="display:none;">
-    <div id="heatmapCalendarBlock" style="display:none;">
-      <div class="hero-card" style="padding:16px 14px 14px;">
-        <div class="cal-weekdays">
-          <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Нд</div>
-        </div>
-        <div class="cal-grid" id="calGrid"></div>
-        <div class="heatmap-legend">
-          <span>Менше</span>
-          <div class="cell lvl-0"></div>
-          <div class="cell lvl-1"></div>
-          <div class="cell lvl-2"></div>
-          <div class="cell lvl-3"></div>
-          <div class="cell lvl-4"></div>
-          <span>Більше</span>
-        </div>
-        <div class="cal-selected-info" id="calSelectedInfo">Тапни на день, щоб побачити деталі</div>
-      </div>
     </div>
   </div>
 </div>
@@ -3059,7 +3037,6 @@ function renderStats(){
   renderQuarterSummary();
   renderTypeRanking();
   renderBestHours();
-  renderHeatmapCalendar();
   renderAttendance();
   const range = getStatsRange();
   const periodWord = statsPeriodMode==='quarter' ? 'квартал' : 'місяць';
@@ -3271,11 +3248,8 @@ function updateSubTabsVisibility(){
   const showExtra = statsPeriodMode==='quarter';
   document.getElementById('rankingSubTab').style.display = showExtra ? '' : 'none';
   document.getElementById('hoursSubTab').style.display = showExtra ? '' : 'none';
-  document.getElementById('heatmapSubTab').style.display = showExtra ? 'none' : '';
   const activeTab = document.querySelector('#subTabsGrid .sub-tab.active');
-  if(showExtra && activeTab && activeTab.dataset.substat==='heatmap'){
-    document.querySelector('#subTabsGrid .sub-tab[data-substat="attendance"]').click();
-  } else if(!showExtra && activeTab && (activeTab.dataset.substat==='ranking' || activeTab.dataset.substat==='hours')){
+  if(!showExtra && activeTab && (activeTab.dataset.substat==='ranking' || activeTab.dataset.substat==='hours')){
     document.querySelector('#subTabsGrid .sub-tab[data-substat="attendance"]').click();
   }
 }
@@ -3318,7 +3292,6 @@ document.querySelectorAll('#subTabsGrid .sub-tab').forEach(tab=>{
     document.getElementById('thresholdsView').style.display = sub==='thresholds' ? '' : 'none';
     document.getElementById('rankingView').style.display = sub==='ranking' ? '' : 'none';
     document.getElementById('hoursView').style.display = sub==='hours' ? '' : 'none';
-    document.getElementById('heatmapView').style.display = sub==='heatmap' ? '' : 'none';
     // canvas розраховує свій розмір по батьківському елементу — якщо той щойно
     // став видимим, треба перемалювати графік, інакше він лишається порожнім (0×0)
     if(sub==='thresholds' && statsPeriodMode!=='quarter') renderDailyChart();
