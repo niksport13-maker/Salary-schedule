@@ -283,6 +283,20 @@
   .rank-row.best .rfill{color:var(--teal);}
   .rank-row.worst .rfill{color:var(--danger);}
 
+  .pct-group{margin-bottom:14px;}
+  .pct-group-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 2px; cursor:pointer;
+  }
+  .pct-group-header .range{font-size:13px; font-weight:700; color:var(--text);}
+  .pct-group-header .count{font-size:11.5px; color:var(--muted); display:flex; align-items:center; gap:4px;}
+  .pct-group-bar{height:4px; background:var(--surface2); border-radius:2px; margin:0 2px 8px; overflow:hidden;}
+  .pct-group-bar .fill{height:100%; border-radius:2px;}
+  .pct-group-list{display:none;}
+  .pct-group-list.open{display:block;}
+  .pct-group-header .chev{transition:transform .2s; color:var(--muted); font-size:12px; display:inline-block;}
+  .pct-group-header.open .chev{transform:rotate(90deg);}
+
   .sub-tabs{display:flex; gap:8px; margin:4px 0 18px;}
   .sub-tabs-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:4px 0 18px;}
   .sub-tabs-grid .sub-tab{padding:9px 6px; font-size:12px;}
@@ -2907,6 +2921,59 @@ function renderStatEntryRow(e, kind){
   return div;
 }
 
+// Групує список тренувань у діапазони по 10% (напр. 90–100%, 80–89%…) і малює
+// розгортні заголовки груп замість плаского списку.
+function renderPctGroups(box, list, direction, containerId){
+  box.innerHTML = '';
+  if(!list.length) return;
+
+  const buckets = {};
+  list.forEach(e=>{
+    const pct = Math.round((e.count/e.cap)*100);
+    const bandStart = Math.min(90, Math.floor(pct/10)*10);
+    if(!buckets[bandStart]) buckets[bandStart] = [];
+    buckets[bandStart].push(e);
+  });
+
+  let bandStarts = Object.keys(buckets).map(Number);
+  bandStarts.sort((a,b)=> direction==='desc' ? b-a : a-b);
+
+  const maxCount = Math.max(...bandStarts.map(b=>buckets[b].length));
+
+  bandStarts.forEach((bandStart, i)=>{
+    const items = buckets[bandStart].sort((a,b)=>{
+      const pa = a.count/a.cap, pb = b.count/b.cap;
+      return direction==='desc' ? pb-pa : pa-pb;
+    });
+    const rangeLabel = bandStart===90 ? '90–100%' : `${bandStart}–${bandStart+9}%`;
+    const color = bandStart>=80 ? '#3F8F86' : (bandStart>=45 ? '#C98A2E' : '#B04A4A');
+    const barWidth = Math.round((items.length/maxCount)*100);
+
+    const groupEl = document.createElement('div');
+    groupEl.className = 'pct-group';
+    const listId = containerId+'-list-'+i;
+    groupEl.innerHTML = `
+      <div class="pct-group-header" data-list="${listId}">
+        <span class="range">${rangeLabel}</span>
+        <span class="count">${items.length} тренувань <span class="chev">›</span></span>
+      </div>
+      <div class="pct-group-bar"><div class="fill" style="width:${barWidth}%; background:${color};"></div></div>
+      <div class="pct-group-list" id="${listId}"></div>
+    `;
+    box.appendChild(groupEl);
+
+    const listEl = groupEl.querySelector('.pct-group-list');
+    items.forEach(e=>listEl.appendChild(renderStatEntryRow(e, direction==='desc' ? 'best' : 'worst')));
+  });
+
+  box.querySelectorAll('.pct-group-header').forEach(h=>{
+    h.addEventListener('click', ()=>{
+      document.getElementById(h.dataset.list).classList.toggle('open');
+      h.classList.toggle('open');
+    });
+  });
+}
+
 let selectedWdIndex = null; // 0=Sunday..6=Saturday (matches Date.getDay())
 
 function fillColorMuted(rate){
@@ -3049,12 +3116,12 @@ function renderStats(){
   const worst = monthEntries.filter(e=>(e.count/e.cap) < 0.3).sort((a,b)=>(a.count/a.cap)-(b.count/b.cap));
 
   if(best.length){
-    best.forEach(e=>bestBox.appendChild(renderStatEntryRow(e,'best')));
+    renderPctGroups(bestBox, best, 'desc', 'pctBest');
   } else {
     bestBox.innerHTML = `<div class="empty">За цей ${periodWord} немає тренувань із заповненістю понад 80%</div>`;
   }
   if(worst.length){
-    worst.forEach(e=>worstBox.appendChild(renderStatEntryRow(e,'worst')));
+    renderPctGroups(worstBox, worst, 'asc', 'pctWorst');
   } else {
     worstBox.innerHTML = `<div class="empty">За цей ${periodWord} немає тренувань із заповненістю менше 30%</div>`;
   }
