@@ -333,6 +333,7 @@
   .detail-hero .breakdown b{color:var(--text); font-family:'Oswald',sans-serif; font-weight:600;}
   .detail-section-title{font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:600; margin:16px 2px 8px;}
   .detail-stat-row{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .detail-stat-row.three{grid-template-columns:1fr 1fr 1fr;}
   .detail-stat-chip{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:10px;}
   .detail-stat-chip .num{font-size:17px;}
   .detail-stat-chip .lbl2{font-size:10px; color:var(--muted); margin-top:2px;}
@@ -832,7 +833,7 @@
         <div class="qamount display"><span id="quarterSummaryAmount">0</span><span class="unit">грн</span> <span id="quarterSummaryExtra" style="font-size:12px; color:var(--teal); font-weight:600;"></span></div>
       </div>
       <div class="right">
-        <div><b id="quarterSummaryCount">0</b> тренувань</div>
+        <div><b id="quarterSummaryConducted">0</b><span style="font-size:11px; color:var(--muted); font-weight:500;"> / <span id="quarterSummaryCount">0</span></span> тренувань</div>
         <div><b id="quarterSummaryFill">—</b> сер. заповненість</div>
       </div>
     </div>
@@ -942,14 +943,18 @@
     </div>
 
     <div class="detail-section-title">Загальна статистика</div>
-    <div class="detail-stat-row">
+    <div class="detail-stat-row three">
       <div class="detail-stat-chip">
-        <div class="num display"><span id="mdCountPaid">0</span><span style="font-size:12px; color:var(--muted); font-weight:500;"> / <span id="mdCount">0</span></span></div>
+        <div class="num display"><span id="mdCountPaid">0</span><span style="font-size:10px; color:var(--muted); font-weight:500;"> / <span id="mdCount">0</span></span></div>
         <div class="lbl2">проведено / загалом</div>
       </div>
       <div class="detail-stat-chip">
         <div class="num display" id="mdFill">—</div>
         <div class="lbl2">сер. заповненість</div>
+      </div>
+      <div class="detail-stat-chip">
+        <div class="num display" id="mdPeople">0</div>
+        <div class="lbl2">людей за місяць</div>
       </div>
     </div>
 
@@ -2521,6 +2526,7 @@ function renderQuarterSummary(){
 
   const salarySum = quarterEntries.reduce((a,e)=>a+e.pay,0);
   const totalCount = quarterEntries.length;
+  const conductedCount = quarterEntries.filter(e=>e.count>0).length;
   const avgFill = paidEntries.length
     ? Math.round((paidEntries.reduce((a,e)=>a+(e.count/e.cap),0)/paidEntries.length)*100)
     : null;
@@ -2534,13 +2540,14 @@ function renderQuarterSummary(){
     const mEntries = entries.filter(e=>e.date.startsWith(monthKey));
     const mPaid = mEntries.filter(e=>e.cap);
     const mConducted = mEntries.filter(e=>e.count>0).length;
+    const mPeople = mEntries.reduce((a,e)=>a+(e.count||0),0);
     const mSalary = mEntries.reduce((a,e)=>a+e.pay,0);
     const mExtraList = extraIncome[monthKey] || [];
     const mExtraSum = mExtraList.reduce((a,x)=>a+x.amount,0);
     const mFill = mPaid.length ? Math.round((mPaid.reduce((a,e)=>a+(e.count/e.cap),0)/mPaid.length)*100) : null;
     monthsData.push({
       monthKey, name: MONTH_SHORT_UA[m-1], salary: mSalary, extra: mExtraSum,
-      sum: mSalary+mExtraSum, fill: mFill, count: mEntries.length, conducted: mConducted
+      sum: mSalary+mExtraSum, fill: mFill, count: mEntries.length, conducted: mConducted, people: mPeople
     });
   }
   const quarterExtraSum = monthsData.reduce((a,m)=>a+m.extra,0);
@@ -2550,6 +2557,7 @@ function renderQuarterSummary(){
   document.getElementById('quarterSummaryAmount').textContent = totalSum.toLocaleString('uk-UA');
   document.getElementById('quarterSummaryExtra').textContent = quarterExtraSum>0 ? `(+${quarterExtraSum.toLocaleString('uk-UA')})` : '';
   document.getElementById('quarterSummaryCount').textContent = totalCount;
+  document.getElementById('quarterSummaryConducted').textContent = conductedCount;
   document.getElementById('quarterSummaryFill').textContent = avgFill===null ? '—' : avgFill+'%';
 
   const bestFill = Math.max(...monthsData.map(m=>m.fill===null?-1:m.fill));
@@ -2582,6 +2590,7 @@ function openMonthDetail(m){
   document.getElementById('mdCount').textContent = m.count;
   document.getElementById('mdCountPaid').textContent = m.conducted;
   document.getElementById('mdFill').textContent = m.fill===null ? '—' : m.fill+'%';
+  document.getElementById('mdPeople').textContent = m.people;
 
   const list = extraIncome[m.monthKey] || [];
   const box = document.getElementById('mdExtraList');
