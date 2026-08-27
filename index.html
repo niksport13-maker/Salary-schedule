@@ -2936,7 +2936,7 @@ function renderPctGroups(box, list, direction, containerId){
   });
 
   let bandStarts = Object.keys(buckets).map(Number);
-  bandStarts.sort((a,b)=> direction==='desc' ? b-a : a-b);
+  bandStarts.sort((a,b)=> b-a); // групи завжди зверху вниз (напр. для <30%: 20–29% → 0–19%)
 
   const maxCount = Math.max(...bandStarts.map(b=>buckets[b].length));
 
