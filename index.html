@@ -465,8 +465,10 @@
   .sess-title{font-size:14.5px; font-weight:700;}
   .sess-sub{font-size:11.5px; color:var(--muted); margin-top:2px;}
   .sess-right{text-align:right;}
+  .sess-avg-pct{font-size:11px; color:var(--teal);}
+  .sess-avg-row{display:flex; align-items:center; gap:6px; justify-content:flex-end; margin-top:2px;}
   .sess-avg{font-size:11.5px; color:#3F8F86;}
-  .sess-delta{font-size:12px; font-weight:700; margin-top:2px;}
+  .sess-delta{font-size:12px; font-weight:700;}
   .sess-delta.up{color:#3F8F86;}
   .sess-delta.down{color:#B04A4A;}
   .sess-mini-bars{display:flex; align-items:flex-end; gap:6px; height:44px; margin:12px 0 4px;}
@@ -626,6 +628,19 @@
     background:none; border:1px solid var(--line); color:var(--danger);
     border-radius:8px; padding:5px 10px; font-size:11.5px; font-weight:600; cursor:pointer;
   }
+  .rate-toggle-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:14px; margin-bottom:20px; display:flex; align-items:center; gap:12px;
+  }
+  .rate-toggle-card .rtmid{flex:1; min-width:0;}
+  .rate-toggle-card .rtt{font-size:14px; font-weight:700; color:var(--text);}
+  .rate-toggle-card .rts{font-size:11.5px; color:var(--muted); margin-top:3px; line-height:1.4;}
+  .switch{position:relative; width:46px; height:27px; flex-shrink:0;}
+  .switch input{opacity:0; width:0; height:0;}
+  .switch .slider{position:absolute; inset:0; background:var(--line); border-radius:999px; cursor:pointer; transition:.2s;}
+  .switch .slider::before{content:""; position:absolute; width:21px; height:21px; left:3px; top:3px; background:var(--text); border-radius:50%; transition:.2s;}
+  .switch input:checked + .slider{background:var(--amber);}
+  .switch input:checked + .slider::before{transform:translateX(19px); background:#1A1300;}
   .splash-overlay{
     position:fixed; inset:0; background:var(--bg); z-index:150;
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
@@ -892,6 +907,18 @@
 </div>
 
 <div id="backupView" style="display:none;">
+  <div class="section-title"><span>Розрахунок зарплати</span></div>
+  <div class="rate-toggle-card">
+    <div class="rtmid">
+      <div class="rtt">Підвищена ставка</div>
+      <div class="rts">База 750₴ замість 550₴, бонус за повний клас 50₴ замість 100₴</div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="elevatedRateToggle">
+      <span class="slider"></span>
+    </label>
+  </div>
+
   <div class="section-title"><span>Резервна копія даних</span></div>
   <div class="empty" style="text-align:left; border-style:solid; margin-bottom:16px;">
     Дані автоматично зберігаються в хмарі й доступні на будь-якому пристрої після входу в акаунт. Резервна копія — додаткова
@@ -1116,7 +1143,9 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const RATE_BASE = 550, RATE_PER_PERSON = 30, RATE_FULL_BONUS = 100, PREMIUM_SLOTS = 3;
+const RATE_PER_PERSON = 30, PREMIUM_SLOTS = 3;
+const RATE_BASE_NORMAL = 550, RATE_FULL_BONUS_NORMAL = 100;
+const RATE_BASE_ELEVATED = 750, RATE_FULL_BONUS_ELEVATED = 50;
 const DEFAULT_TYPES = ["Reshape Full","Reshape Lower","Reshape Upper","Reshape Core","Run Full","Run Lower","Run Upper","Run Core","Cycle","Hot ass","Power","Games","Perfect core","Bikini body","TRX","Stretching","Pilatass Basic","Pilatass Power","Bounce Power","Bounce Cardio","Bounce Barre","Reformass","Barre","Barre TRX","Barre Classic","Hatha Yoga","Yoga","Recovery","Stretch & Roll","Boxing","Full Body","Lower Body","Upper Body","Functional","Cycle UA","Dance Cycle","Climb","Power Yoga","Power Bare"];
 const CLUBS = ["Garage","Бажана","Жилянська","Оболонь","Короленківська","Girls Only"];
 const WEEKDAYS = ["Неділя","Понеділок","Вівторок","Середа","Четвер","П'ятниця","Субота"];
@@ -1131,6 +1160,7 @@ let templates = []; // recurring weekly schedule slots
 let skips = [];      // "templateId|date" occurrences removed for one week
 let extras = [];     // one-off (non-recurring) schedule additions
 let extraIncome = {}; // {'YYYY-MM': [{id, label, amount}]} — чайові/додатковий заробіток по місяцях
+let elevatedRate = false; // Підвищена ставка: база 750 замість 550, бонус за повний клас 50 замість 100
 let selectedScheduleDate = isoToday();
 let fillContext = null;
 let detailContext = null;
@@ -1141,11 +1171,13 @@ function calcPay(cap, count){
   cap = Number(cap); count = Number(count);
   if(cap<=0) return null;
   if(count<=0) return 0;
+  const rateBase = elevatedRate ? RATE_BASE_ELEVATED : RATE_BASE_NORMAL;
+  const rateFullBonus = elevatedRate ? RATE_FULL_BONUS_ELEVATED : RATE_FULL_BONUS_NORMAL;
   const halfCap = Math.floor(cap/2); // для непарної місткості (31 → поріг 15): 16-та людина вже дає повний бонус, а не частковий
   const bonusPerPerson = Math.max(0, count - halfCap) * RATE_PER_PERSON;
-  const nearFullBonus = count >= (cap - PREMIUM_SLOTS + 1) ? RATE_FULL_BONUS : 0;
+  const nearFullBonus = count >= (cap - PREMIUM_SLOTS + 1) ? rateFullBonus : 0;
   const bonus = bonusPerPerson + nearFullBonus;
-  return Math.round(RATE_BASE + bonus);
+  return Math.round(rateBase + bonus);
 }
 
 function fmtDate(d){
@@ -1756,6 +1788,7 @@ async function loadData(){
   try{ skips = JSON.parse(localStorage.getItem('trener_skips') || '[]'); }catch(e){ skips = []; }
   try{ extras = JSON.parse(localStorage.getItem('trener_extras') || '[]'); }catch(e){ extras = []; }
   try{ extraIncome = JSON.parse(localStorage.getItem('trener_extraIncome') || '{}'); }catch(e){ extraIncome = {}; }
+  try{ elevatedRate = localStorage.getItem('trener_elevatedRate') === '1'; }catch(e){ elevatedRate = false; }
 
   // one-time migration: rename club "Garag" -> "Garage" everywhere it's stored
   let migrated = false;
@@ -1800,6 +1833,11 @@ function saveExtraIncome(){
   queueCloudSync();
 }
 
+function saveElevatedRate(){
+  try{ localStorage.setItem('trener_elevatedRate', elevatedRate ? '1' : '0'); }catch(e){}
+  queueCloudSync();
+}
+
 /* ===================== FIREBASE AUTH + CLOUD SYNC ===================== */
 /* Ця частина не виконується одразу — вона чекає, поки завантажаться Firebase-скрипти
    (це може зайняти час на повільному інтернеті). Локальні дані та інтерфейс
@@ -1832,7 +1870,7 @@ async function pushToCloud(){
   if(!currentUser || !db) return;
   try{
     await db.collection('users').doc(currentUser.uid).set({
-      entries, types, templates, skips, extras, extraIncome,
+      entries, types, templates, skips, extras, extraIncome, elevatedRate,
       email: currentUser.email,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, {merge:true});
@@ -1862,6 +1900,7 @@ function resetLocalDataToEmpty(){
   skips = [];
   extras = [];
   extraIncome = {};
+  elevatedRate = false;
   try{
     localStorage.setItem('trener_trainings', JSON.stringify(entries));
     localStorage.setItem('trener_trainingTypes', JSON.stringify(types));
@@ -1869,7 +1908,9 @@ function resetLocalDataToEmpty(){
     localStorage.setItem('trener_skips', JSON.stringify(skips));
     localStorage.setItem('trener_extras', JSON.stringify(extras));
     localStorage.setItem('trener_extraIncome', JSON.stringify(extraIncome));
+    localStorage.setItem('trener_elevatedRate', '0');
   }catch(e){}
+  updateElevatedRateToggleUI();
 }
 
 async function pullFromCloudOrMigrate(){
@@ -1900,6 +1941,7 @@ async function pullFromCloudOrMigrate(){
     skips = Array.isArray(d.skips) ? d.skips : skips;
     extras = Array.isArray(d.extras) ? d.extras : extras;
     extraIncome = (d.extraIncome && typeof d.extraIncome==='object') ? d.extraIncome : extraIncome;
+    elevatedRate = typeof d.elevatedRate === 'boolean' ? d.elevatedRate : elevatedRate;
     try{
       localStorage.setItem('trener_trainings', JSON.stringify(entries));
       localStorage.setItem('trener_trainingTypes', JSON.stringify(types));
@@ -1907,8 +1949,10 @@ async function pullFromCloudOrMigrate(){
       localStorage.setItem('trener_skips', JSON.stringify(skips));
       localStorage.setItem('trener_extras', JSON.stringify(extras));
       localStorage.setItem('trener_extraIncome', JSON.stringify(extraIncome));
+      localStorage.setItem('trener_elevatedRate', elevatedRate ? '1' : '0');
     }catch(e){}
     suppressNextSync = false;
+    updateElevatedRateToggleUI();
     // існуючий користувач — оновлюємо лише lastLoginAt, дату реєстрації не чіпаємо
     await recordLogin(false);
   } else if(isDifferentAccount){
@@ -3061,6 +3105,7 @@ function renderAttendance(){
     const s = sessions[key];
     const occ = s.occurrences;
     const avg = occ.reduce((a,o)=>a+o.count,0)/occ.length;
+    const avgFillPct = Math.round((occ.reduce((a,o)=>a+(o.count/o.cap),0)/occ.length)*100);
     const cap = occ[occ.length-1].cap;
     const delta = occ[occ.length-1].count - occ[0].count;
     const maxCount = Math.max(...occ.map(o=>o.count), 1);
@@ -3075,8 +3120,11 @@ function renderAttendance(){
           <div class="sess-sub">${s.club||''} · зал до ${cap}</div>
         </div>
         <div class="sess-right">
-          <div class="sess-avg">сер. ${Math.round(avg*10)/10}/${cap}</div>
-          <div class="sess-delta ${delta>=0?'up':'down'}">${delta>=0?'▲':'▼'} ${delta>=0?'+':''}${delta}</div>
+          <div class="sess-avg-pct">Заповн. ${avgFillPct}%</div>
+          <div class="sess-avg-row">
+            <div class="sess-avg">сер. ${Math.round(avg*10)/10}/${cap}</div>
+            <div class="sess-delta ${delta>=0?'up':'down'}">${delta>=0?'▲':'▼'} ${delta>=0?'+':''}${delta}</div>
+          </div>
         </div>
       </div>
       <div class="sess-mini-bars">
@@ -3420,8 +3468,21 @@ document.getElementById('clubOverlay').addEventListener('click', (e)=>{
   if(e.target.id==='clubOverlay') document.getElementById('clubOverlay').classList.remove('open');
 });
 
+function updateElevatedRateToggleUI(){
+  const toggle = document.getElementById('elevatedRateToggle');
+  if(toggle) toggle.checked = elevatedRate;
+}
+
+document.getElementById('elevatedRateToggle').addEventListener('change', (e)=>{
+  elevatedRate = e.target.checked;
+  saveElevatedRate();
+  // перерахувати вже показані суми одразу, без перезавантаження сторінки
+  renderAll();
+  showToast(elevatedRate ? 'Підвищену ставку увімкнено ✓' : 'Підвищену ставку вимкнено');
+});
+
 document.getElementById('exportBtn').addEventListener('click', ()=>{
-  const payload = JSON.stringify({entries, types, templates, skips, extras, extraIncome}, null, 2);
+  const payload = JSON.stringify({entries, types, templates, skips, extras, extraIncome, elevatedRate}, null, 2);
   const blob = new Blob([payload], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -3452,10 +3513,13 @@ document.getElementById('importFile').addEventListener('change', async (e)=>{
     skips = Array.isArray(data.skips) ? data.skips : [];
     extras = Array.isArray(data.extras) ? data.extras : [];
     extraIncome = (data.extraIncome && typeof data.extraIncome==='object') ? data.extraIncome : {};
+    elevatedRate = typeof data.elevatedRate === 'boolean' ? data.elevatedRate : false;
     await saveEntries();
     await saveTypes();
     saveSchedule();
     saveExtraIncome();
+    saveElevatedRate();
+    updateElevatedRateToggleUI();
     renderAll();
     renderDateStrip();
     renderScheduleList();
@@ -3648,6 +3712,7 @@ const localRenderReady = new Promise(res=>{ resolveLocalRenderReady = res; });
   document.getElementById('monthPicker').value = selectedMonth;
   document.getElementById('statsMonthPicker').value = selectedStatsMonth;
   await loadData();
+  updateElevatedRateToggleUI();
   renderEssential();
   resolveLocalRenderReady(); // заставку можна ховати вже тут — швидка частина готова
   // важчі обчислення (стрічка дат, повний список) донавантажуються без блокування заставки
