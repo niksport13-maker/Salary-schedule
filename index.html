@@ -1798,7 +1798,14 @@ async function loadData(){
   extras.forEach(x=>{ if(x.club==='Garag'){ x.club='Garage'; migrated=true; } });
   if(migrated){ await saveEntries(); saveSchedule(); }
 
-  // refresh training types list: drop old/renamed entries, add new ones if missing
+  await migrateTypesList();
+}
+
+// Додає нові типи тренувань (яких немає у вже збереженому списку користувача) і прибирає
+// старі/перейменовані. Викликається і тут (для локальних даних), і одразу після того, як
+// хмара перезаписує types своєю (можливо застарілою) копією — інакше нові типи, додані в
+// застосунок, зникали б одразу після синхронізації для вже існуючих користувачів.
+async function migrateTypesList(){
   let typesChanged = false;
   ["Reshape","Run","Pilatass","Pilates"].forEach(old=>{
     const i = types.indexOf(old);
@@ -1955,6 +1962,7 @@ async function pullFromCloudOrMigrate(){
     }catch(e){}
     suppressNextSync = false;
     updateElevatedRateToggleUI();
+    await migrateTypesList(); // хмара щойно перезаписала types своєю копією — довіряємо, але перевіряємо на нові типи
     // існуючий користувач — оновлюємо лише lastLoginAt, дату реєстрації не чіпаємо
     await recordLogin(false);
   } else if(isDifferentAccount){
