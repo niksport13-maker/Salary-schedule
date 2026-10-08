@@ -536,6 +536,23 @@
   .extra-row:first-of-type{border-top:none;}
   .extra-row .elabel{flex:1; font-size:13px; color:var(--text); min-width:0;}
   .extra-row .esum{font-family:'Oswald',sans-serif; font-size:15px; color:var(--teal); white-space:nowrap;}
+  .sa-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:16px;}
+  .sa-head h2{margin:0 !important; font-size:17px !important; white-space:nowrap;}
+  .sa-mode{display:flex; background:var(--surface2); border:1px solid var(--line); border-radius:999px; padding:3px; position:relative; flex-shrink:0; width:148px;}
+  .sa-mode .slider{position:absolute; top:3px; bottom:3px; left:3px; width:calc(50% - 3px); background:#FFB02026; border:1px solid var(--amber); border-radius:999px; transition:transform .25s ease;}
+  .sa-mode .slider.right{transform:translateX(100%);}
+  .sa-mode .opt{flex:1; text-align:center; padding:6px 0; font-size:11.5px; font-weight:700; color:var(--muted); cursor:pointer; position:relative; z-index:1; transition:color .2s;}
+  .sa-mode .opt.active{color:var(--amber);}
+  .field .hint{font-size:11px; color:#555; margin-top:5px; line-height:1.4;}
+  .ev-pending{margin-left:auto; font-size:11.5px; color:var(--teal); font-weight:700; white-space:nowrap;}
+  .ev-spacer{display:inline-block; width:24px; flex-shrink:0;}
+  .ev-group{cursor:pointer;}
+  .ev-chev{color:var(--muted); font-size:14px; width:24px; text-align:center; flex-shrink:0; transition:transform .2s;}
+  .ev-group.open .ev-chev{transform:rotate(180deg);}
+  .ev-sub{display:flex; align-items:center; gap:10px; padding:6px 0 6px 12px; border-top:1px solid var(--line); font-size:12.5px; color:var(--muted);}
+  .ev-sub .elabel{flex:1;}
+  .ev-sub .esum{font-family:'Oswald',sans-serif; font-size:13.5px; color:var(--teal);}
+  .ev-sub .ev-spacer{width:24px;}
   .extra-row .edel{background:none; border:none; color:var(--muted); font-size:16px; cursor:pointer; padding:2px 4px;}
 
   .extra-add-row{display:flex; gap:6px; margin-top:10px;}
@@ -1023,10 +1040,30 @@
   </div>
 </div>
 
+<div class="sheet-overlay" id="eventAmountOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="eventAmountTitle">Подія</h2>
+    <div class="field">
+      <label>Сума, грн</label>
+      <input type="number" id="eventAmountInput" min="0" inputmode="decimal" placeholder="0">
+    </div>
+    <button class="save-btn" id="eventAmountSave">Зберегти</button>
+    <button class="cancel-btn" id="eventAmountCancel">Скасувати</button>
+  </div>
+</div>
+
 <div class="sheet-overlay" id="scheduleAddOverlay">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <h2>Додати в розклад</h2>
+    <div class="sa-head">
+      <h2>Додати в розклад</h2>
+      <div class="sa-mode">
+        <div class="slider" id="saModeSlider"></div>
+        <div class="opt active" id="saModeTraining">Тренування</div>
+        <div class="opt" id="saModeEvent">Подія</div>
+      </div>
+    </div>
     <div class="field">
       <label>Дата</label>
       <button class="week-picker-btn" id="saDateBtn">
@@ -1035,29 +1072,41 @@
         <span class="chev">▾</span>
       </button>
     </div>
-    <div class="row2">
+    <div class="row2" id="saTimeRow">
       <div class="field">
         <label>Час</label>
         <select id="saTime"></select>
       </div>
-      <div class="field">
+      <div class="field" id="saClubField">
         <label>Клуб</label>
         <select id="saClub"></select>
       </div>
     </div>
-    <div class="field">
+    <div class="field" id="saTypeField">
       <label>Тип тренування</label>
       <select id="saType"></select>
     </div>
-    <div class="field">
+    <div class="field" id="saCapField">
       <label>Макс. місткість групи (можна залишити порожнім)</label>
       <input type="number" id="saCap" min="1" placeholder="10">
+    </div>
+    <div id="saEventFields" style="display:none;">
+      <div class="field">
+        <label>Назва події</label>
+        <input type="text" id="saEventTitle" list="saEventTitles" placeholder="напр. Персональне тренування" autocomplete="off">
+        <datalist id="saEventTitles"></datalist>
+      </div>
+      <div class="field">
+        <label>Сума, грн (необов'язково)</label>
+        <input type="number" id="saEventAmount" min="0" inputmode="decimal" placeholder="Можна ввести пізніше">
+        <div class="hint">Без суми подія в розкладі позначена «Ввести суму» — додаси її, коли буде відомо.</div>
+      </div>
     </div>
     <div class="toggle-row">
       <input type="checkbox" id="saRepeat">
       <label for="saRepeat">Повторювати щотижня в цей день тижня</label>
     </div>
-    <div class="toggle-row">
+    <div class="toggle-row" id="saSubRow">
       <input type="checkbox" id="saSubstitution">
       <label for="saSubstitution">Заміна (буде виділена червоним і показана у всіх розділах)</label>
     </div>
@@ -1159,6 +1208,7 @@ let selectedWeekStart = null; // ISO date string, Monday of chosen week
 let templates = []; // recurring weekly schedule slots
 let skips = [];      // "templateId|date" occurrences removed for one week
 let extras = [];     // one-off (non-recurring) schedule additions
+let eventAmounts = {}; // {'eventId|YYYY-MM-DD': сума} — суми подій (за конкретну дату)
 let extraIncome = {}; // {'YYYY-MM': [{id, label, amount}]} — чайові/додатковий заробіток по місяцях
 let elevatedRate = false; // Підвищена ставка: база 750 замість 550, бонус за повний клас 50 замість 100
 let selectedScheduleDate = isoToday();
@@ -1206,15 +1256,19 @@ function genId(){
   return Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 }
 
-function getScheduleForDate(dateStr){
+function getScheduleForDate(dateStr, withEvents){
   const weekday = new Date(dateStr+'T00:00:00').getDay();
   const tItems = templates
     .filter(t=>t.weekday===weekday && !skips.includes(t.id+'|'+dateStr) && (!t.startDate || dateStr >= t.startDate))
-    .map(t=>({id:t.id, kind:'template', time:t.time, type:t.type, club:t.club, cap:t.cap, substitution:!!t.substitution}));
+    .map(t=>({id:t.id, kind:'template', time:t.time, type:t.isEvent?t.title:t.type, club:t.isEvent?'':t.club, cap:t.cap, substitution:!!t.substitution, isEvent:!!t.isEvent}));
   const eItems = extras
     .filter(x=>x.date===dateStr)
-    .map(x=>({id:x.id, kind:'extra', time:x.time, type:x.type, club:x.club, cap:x.cap, substitution:!!x.substitution}));
-  let items = [...tItems, ...eItems].map(it=>{
+    .map(x=>({id:x.id, kind:'extra', time:x.time, type:x.isEvent?x.title:x.type, club:x.isEvent?'':x.club, cap:x.cap, substitution:!!x.substitution, isEvent:!!x.isEvent}));
+  let items = [...tItems, ...eItems].filter(it=> withEvents || !it.isEvent).map(it=>{
+    if(it.isEvent){
+      const a = eventAmounts[it.id+'|'+dateStr];
+      return {...it, entry:null, amount: (typeof a==='number' && a>=0) ? a : null};
+    }
     const entry = entries.find(e=>e.sourceId===it.id && e.date===dateStr) || null;
     return {...it, entry};
   });
@@ -1260,7 +1314,7 @@ function renderDateStrip(){
   for(let i=-60;i<=60;i++){
     const d = new Date(base); d.setDate(base.getDate()+i);
     const iso = toISO(d);
-    const hasItems = getScheduleForDate(iso).length>0;
+    const hasItems = getScheduleForDate(iso, true).length>0;
     const chip = document.createElement('div');
     chip.className = 'date-chip'+(iso===selectedScheduleDate?' active':'');
     chip.dataset.iso = iso;
@@ -1296,7 +1350,7 @@ function renderScheduleList(){
   const label = document.getElementById('scheduleDateLabel');
   if(label) label.textContent = WEEKDAYS[d.getDay()]+', '+ddmmyyyy(selectedScheduleDate);
 
-  const items = getScheduleForDate(selectedScheduleDate);
+  const items = getScheduleForDate(selectedScheduleDate, true);
   box.innerHTML='';
   if(!items.length){
     box.innerHTML = '<div class="empty">На цю дату немає запланованих тренувань.<br>Натисніть «Додати в розклад» нижче.</div>';
@@ -1307,7 +1361,20 @@ function renderScheduleList(){
     row.className='entry'+(it.substitution?' substitution':'');
     const repeatBadge = it.kind==='template' ? '<span class="repeat-badge">↻</span>' : '';
     const subBadge = it.substitution ? '<span class="sub-badge">Заміна</span>' : '';
-    if(it.entry){
+    if(it.isEvent){
+      const right = it.amount===null
+        ? '<div class="ev-pending">Ввести суму</div>'
+        : `<div class="money display">${it.amount.toLocaleString('uk-UA')}₴</div>`;
+      row.innerHTML = `
+        <div class="time display">${it.time}</div>
+        <div class="mid">
+          <div class="type">${escHtml(it.type)}${repeatBadge}</div>
+          <div class="meta">Подія</div>
+        </div>
+        ${right}
+        <button class="del" data-role="remove">✕</button>
+      `;
+    } else if(it.entry){
       const fill = Math.round((it.entry.count/it.entry.cap)*100);
       row.innerHTML = `
         <div class="time display">${it.time}</div>
@@ -1330,7 +1397,8 @@ function renderScheduleList(){
     }
     row.addEventListener('click', (ev)=>{
       if(ev.target.closest('[data-role="remove"]')) return;
-      if(it.entry) openScheduleDetail(it); else openScheduleFill(it);
+      if(it.isEvent) openEventAmount(it);
+      else if(it.entry) openScheduleDetail(it); else openScheduleFill(it);
     });
     row.querySelector('[data-role="remove"]').addEventListener('click', (ev)=>{
       ev.stopPropagation();
@@ -1340,7 +1408,42 @@ function renderScheduleList(){
   });
 }
 
+function escHtml(str){
+  return String(str==null?'':str).replace(/[&<>"]/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+}
+
+let eventAmountCtx = null;
+function openEventAmount(it){
+  eventAmountCtx = it;
+  document.getElementById('eventAmountTitle').textContent = it.type+' · '+ddmmyyyy(selectedScheduleDate);
+  document.getElementById('eventAmountInput').value = it.amount===null ? '' : it.amount;
+  document.getElementById('eventAmountOverlay').classList.add('open');
+}
+document.getElementById('eventAmountCancel').addEventListener('click', ()=>{
+  document.getElementById('eventAmountOverlay').classList.remove('open');
+});
+document.getElementById('eventAmountSave').addEventListener('click', ()=>{
+  const raw = document.getElementById('eventAmountInput').value;
+  const key = eventAmountCtx.id+'|'+selectedScheduleDate;
+  if(raw===''){
+    delete eventAmounts[key];
+  } else {
+    const v = Number(raw);
+    if(isNaN(v) || v<0){ showToast('Введи суму'); return; }
+    eventAmounts[key] = v;
+  }
+  saveEventAmounts();
+  document.getElementById('eventAmountOverlay').classList.remove('open');
+  renderScheduleList();
+  renderList();
+  showToast('Збережено ✓');
+});
+
 async function removeScheduleOccurrence(it){
+  if(it.isEvent){
+    delete eventAmounts[it.id+'|'+selectedScheduleDate];
+    saveEventAmounts();
+  }
   if(it.kind==='template'){
     skips.push(it.id+'|'+selectedScheduleDate);
   } else if(it.kind==='extra'){
@@ -1441,7 +1544,30 @@ function typesForClub(club){
 let saSelectedDate = null; // дата, обрана саме в панелі "Додати в розклад"
 let saCalViewYear = null, saCalViewMonth = null; // місяць, що зараз показує календар-picker
 
+let saMode = 'training';
+function setSaMode(mode){
+  saMode = mode;
+  const isEvent = mode==='event';
+  document.getElementById('saModeSlider').classList.toggle('right', isEvent);
+  document.getElementById('saModeTraining').classList.toggle('active', !isEvent);
+  document.getElementById('saModeEvent').classList.toggle('active', isEvent);
+  document.getElementById('saClubField').style.display = isEvent ? 'none' : '';
+  document.getElementById('saTimeRow').style.gridTemplateColumns = isEvent ? '1fr' : '';
+  document.getElementById('saTypeField').style.display = isEvent ? 'none' : '';
+  document.getElementById('saCapField').style.display = isEvent ? 'none' : '';
+  document.getElementById('saEventFields').style.display = isEvent ? '' : 'none';
+  document.getElementById('saSubRow').style.display = isEvent ? 'none' : '';
+}
+document.getElementById('saModeTraining').addEventListener('click', ()=>setSaMode('training'));
+document.getElementById('saModeEvent').addEventListener('click', ()=>setSaMode('event'));
+
 function openScheduleAdd(){
+  setSaMode('training');
+  document.getElementById('saEventTitle').value='';
+  document.getElementById('saEventAmount').value='';
+  const titles = new Set();
+  [...templates, ...extras].forEach(x=>{ if(x.isEvent && x.title) titles.add(x.title); });
+  document.getElementById('saEventTitles').innerHTML = [...titles].map(t=>`<option value="${escHtml(t)}"></option>`).join('');
   populateSelect('saTime', timeOptionsArray());
   populateSelect('saClub', CLUBS);
   populateSelect('saType', typesForClub(document.getElementById('saClub').value));
@@ -1538,7 +1664,7 @@ function renderManageTemplates(){
     row.className='entry';
     row.innerHTML = `
       <div class="mid">
-        <div class="type">${t.type} <span style="color:var(--muted); font-weight:500;">· ${t.club}</span></div>
+        <div class="type">${t.isEvent ? escHtml(t.title)+' <span style="color:var(--muted); font-weight:500;">· Подія</span>' : t.type+' <span style="color:var(--muted); font-weight:500;">· '+t.club+'</span>'}</div>
         <div class="meta">${t.time}</div>
       </div>
       <button class="del" data-role="del-template">✕</button>
@@ -1789,6 +1915,7 @@ async function loadData(){
   try{ skips = JSON.parse(localStorage.getItem('trener_skips') || '[]'); }catch(e){ skips = []; }
   try{ extras = JSON.parse(localStorage.getItem('trener_extras') || '[]'); }catch(e){ extras = []; }
   try{ extraIncome = JSON.parse(localStorage.getItem('trener_extraIncome') || '{}'); }catch(e){ extraIncome = {}; }
+  try{ eventAmounts = JSON.parse(localStorage.getItem('trener_eventAmounts') || '{}'); }catch(e){ eventAmounts = {}; }
   try{ elevatedRate = localStorage.getItem('trener_elevatedRate') === '1'; }catch(e){ elevatedRate = false; }
 
   // one-time migration: rename club "Garag" -> "Garage" everywhere it's stored
@@ -1837,6 +1964,11 @@ function saveSchedule(){
   queueCloudSync();
 }
 
+function saveEventAmounts(){
+  try{ localStorage.setItem('trener_eventAmounts', JSON.stringify(eventAmounts)); }catch(e){}
+  queueCloudSync();
+}
+
 function saveExtraIncome(){
   try{ localStorage.setItem('trener_extraIncome', JSON.stringify(extraIncome)); }catch(e){}
   queueCloudSync();
@@ -1879,7 +2011,7 @@ async function pushToCloud(){
   if(!currentUser || !db) return;
   try{
     await db.collection('users').doc(currentUser.uid).set({
-      entries, types, templates, skips, extras, extraIncome, elevatedRate,
+      entries, types, templates, skips, extras, extraIncome, eventAmounts, elevatedRate,
       email: currentUser.email,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, {merge:true});
@@ -1909,6 +2041,7 @@ function resetLocalDataToEmpty(){
   skips = [];
   extras = [];
   extraIncome = {};
+  eventAmounts = {};
   elevatedRate = false;
   try{
     localStorage.setItem('trener_trainings', JSON.stringify(entries));
@@ -1917,6 +2050,7 @@ function resetLocalDataToEmpty(){
     localStorage.setItem('trener_skips', JSON.stringify(skips));
     localStorage.setItem('trener_extras', JSON.stringify(extras));
     localStorage.setItem('trener_extraIncome', JSON.stringify(extraIncome));
+    localStorage.setItem('trener_eventAmounts', JSON.stringify(eventAmounts));
     localStorage.setItem('trener_elevatedRate', '0');
   }catch(e){}
   updateElevatedRateToggleUI();
@@ -1950,6 +2084,7 @@ async function pullFromCloudOrMigrate(){
     skips = Array.isArray(d.skips) ? d.skips : skips;
     extras = Array.isArray(d.extras) ? d.extras : extras;
     extraIncome = (d.extraIncome && typeof d.extraIncome==='object') ? d.extraIncome : extraIncome;
+    eventAmounts = (d.eventAmounts && typeof d.eventAmounts==='object') ? d.eventAmounts : eventAmounts;
     elevatedRate = typeof d.elevatedRate === 'boolean' ? d.elevatedRate : elevatedRate;
     try{
       localStorage.setItem('trener_trainings', JSON.stringify(entries));
@@ -1958,6 +2093,7 @@ async function pullFromCloudOrMigrate(){
       localStorage.setItem('trener_skips', JSON.stringify(skips));
       localStorage.setItem('trener_extras', JSON.stringify(extras));
       localStorage.setItem('trener_extraIncome', JSON.stringify(extraIncome));
+      localStorage.setItem('trener_eventAmounts', JSON.stringify(eventAmounts));
       localStorage.setItem('trener_elevatedRate', elevatedRate ? '1' : '0');
     }catch(e){}
     suppressNextSync = false;
@@ -2408,6 +2544,81 @@ function renderClubStats(list, total){
   box.appendChild(totalRow);
 }
 
+function getEventIncomeForMonth(yyyyMm){
+  const res = [];
+  const n = daysInMonth(yyyyMm);
+  for(let day=1; day<=n; day++){
+    const dateStr = yyyyMm+'-'+String(day).padStart(2,'0');
+    getScheduleForDate(dateStr, true).forEach(it=>{
+      if(it.isEvent && it.amount!==null && it.amount>0){
+        res.push({id: it.id+'|'+dateStr, date: dateStr, title: it.type, amount: it.amount});
+      }
+    });
+  }
+  return res;
+}
+function groupEventIncome(list){
+  const map = new Map();
+  list.forEach(ev=>{
+    const key = ev.title.trim().toLowerCase();
+    if(!map.has(key)) map.set(key, {title: ev.title, items: [], sum: 0});
+    const g = map.get(key);
+    g.items.push(ev); g.sum += ev.amount;
+  });
+  return [...map.values()];
+}
+function evDateLabel(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  return ddmm(d)+' '+WEEKDAYS_SHORT[d.getDay()];
+}
+function monthExtraTotal(yyyyMm){
+  const manual = (extraIncome[yyyyMm]||[]).reduce((a,x)=>a+x.amount,0);
+  const ev = getEventIncomeForMonth(yyyyMm).reduce((a,x)=>a+x.amount,0);
+  return manual+ev;
+}
+function renderEventGroups(box, groups, rowClass){
+  groups.forEach(g=>{
+    if(g.items.length===1){
+      const ev = g.items[0];
+      const row = document.createElement('div');
+      row.className = rowClass;
+      row.innerHTML = `
+        <div class="elabel">${escHtml(g.title)} <span style="color:var(--muted);">· ${evDateLabel(ev.date)}</span></div>
+        <div class="esum">+${ev.amount.toLocaleString('uk-UA')}₴</div>
+        <span class="ev-spacer"></span>
+      `;
+      box.appendChild(row);
+      return;
+    }
+    const head = document.createElement('div');
+    head.className = rowClass+' ev-group';
+    head.innerHTML = `
+      <div class="elabel">${escHtml(g.title)} <span style="color:var(--muted);">· ${g.items.length}×</span></div>
+      <div class="esum">+${g.sum.toLocaleString('uk-UA')}₴</div>
+      <span class="ev-chev">▾</span>
+    `;
+    const subs = document.createElement('div');
+    subs.style.display = 'none';
+    g.items.forEach(ev=>{
+      const sub = document.createElement('div');
+      sub.className = 'ev-sub';
+      sub.innerHTML = `
+        <div class="elabel">${evDateLabel(ev.date)}</div>
+        <div class="esum">+${ev.amount.toLocaleString('uk-UA')}₴</div>
+        <span class="ev-spacer"></span>
+      `;
+      subs.appendChild(sub);
+    });
+    head.addEventListener('click', ()=>{
+      const open = subs.style.display === 'none';
+      subs.style.display = open ? '' : 'none';
+      head.classList.toggle('open', open);
+    });
+    box.appendChild(head);
+    box.appendChild(subs);
+  });
+}
+
 function renderExtraIncome(clubTotal){
   const wrap = document.getElementById('extraIncomeWrap');
   if(currentPeriod!=='month'){
@@ -2435,7 +2646,9 @@ function renderExtraIncome(clubTotal){
     box.appendChild(row);
   });
 
-  const extraSum = list.reduce((a,x)=>a+x.amount, 0);
+  const evList = getEventIncomeForMonth(selectedMonth);
+  renderEventGroups(box, groupEventIncome(evList), 'extra-row');
+  const extraSum = list.reduce((a,x)=>a+x.amount, 0) + evList.reduce((a,x)=>a+x.amount, 0);
   document.getElementById('extraTotalSum').textContent = '+'+extraSum.toLocaleString('uk-UA')+'₴';
   document.getElementById('grandTotalSum').textContent = (clubTotal+extraSum).toLocaleString('uk-UA')+'₴';
 }
@@ -2596,8 +2809,7 @@ function renderQuarterSummary(){
     const mConducted = mEntries.filter(e=>e.count>0).length;
     const mPeople = mEntries.reduce((a,e)=>a+(e.count||0),0);
     const mSalary = mEntries.reduce((a,e)=>a+e.pay,0);
-    const mExtraList = extraIncome[monthKey] || [];
-    const mExtraSum = mExtraList.reduce((a,x)=>a+x.amount,0);
+    const mExtraSum = monthExtraTotal(monthKey);
     const mFill = mPaid.length ? Math.round((mPaid.reduce((a,e)=>a+(e.count/e.cap),0)/mPaid.length)*100) : null;
     monthsData.push({
       monthKey, name: MONTH_SHORT_UA[m-1], salary: mSalary, extra: mExtraSum,
@@ -2647,9 +2859,10 @@ function openMonthDetail(m){
   document.getElementById('mdPeople').textContent = m.people;
 
   const list = extraIncome[m.monthKey] || [];
+  const evList = getEventIncomeForMonth(m.monthKey);
   const box = document.getElementById('mdExtraList');
   box.innerHTML = '';
-  if(!list.length){
+  if(!list.length && !evList.length){
     box.innerHTML = '<div class="empty">Додатків за цей місяць не було</div>';
   } else {
     list.forEach(item=>{
@@ -2661,6 +2874,7 @@ function openMonthDetail(m){
       `;
       box.appendChild(row);
     });
+    renderEventGroups(box, groupEventIncome(evList), 'extra-detail-row');
   }
 
   document.getElementById('monthDetailOverlay').classList.add('open');
@@ -3492,7 +3706,7 @@ document.getElementById('elevatedRateToggle').addEventListener('change', (e)=>{
 });
 
 document.getElementById('exportBtn').addEventListener('click', ()=>{
-  const payload = JSON.stringify({entries, types, templates, skips, extras, extraIncome, elevatedRate}, null, 2);
+  const payload = JSON.stringify({entries, types, templates, skips, extras, extraIncome, eventAmounts, elevatedRate}, null, 2);
   const blob = new Blob([payload], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -3523,11 +3737,13 @@ document.getElementById('importFile').addEventListener('change', async (e)=>{
     skips = Array.isArray(data.skips) ? data.skips : [];
     extras = Array.isArray(data.extras) ? data.extras : [];
     extraIncome = (data.extraIncome && typeof data.extraIncome==='object') ? data.extraIncome : {};
+    eventAmounts = (data.eventAmounts && typeof data.eventAmounts==='object') ? data.eventAmounts : {};
     elevatedRate = typeof data.elevatedRate === 'boolean' ? data.elevatedRate : false;
     await saveEntries();
     await saveTypes();
     saveSchedule();
     saveExtraIncome();
+    saveEventAmounts();
     saveElevatedRate();
     updateElevatedRateToggleUI();
     renderAll();
@@ -3603,6 +3819,29 @@ document.getElementById('saSaveBtn').addEventListener('click', ()=>{
   const repeat = document.getElementById('saRepeat').checked;
   const substitution = document.getElementById('saSubstitution').checked;
   const targetDate = saSelectedDate || selectedScheduleDate;
+  if(saMode==='event'){
+    const title = document.getElementById('saEventTitle').value.trim();
+    if(!title){ showToast('Введи назву події'); return; }
+    const amtRaw = document.getElementById('saEventAmount').value;
+    const amt = amtRaw==='' ? null : Number(amtRaw);
+    if(amt!==null && (isNaN(amt) || amt<0)){ showToast('Некоректна сума'); return; }
+    const id = genId();
+    if(repeat){
+      const weekday = new Date(targetDate+'T00:00:00').getDay();
+      templates.push({id, weekday, time, isEvent:true, title, startDate: targetDate});
+    } else {
+      extras.push({id, date: targetDate, time, isEvent:true, title});
+    }
+    if(amt!==null){ eventAmounts[id+'|'+targetDate] = amt; saveEventAmounts(); }
+    saveSchedule();
+    document.getElementById('scheduleAddOverlay').classList.remove('open');
+    if(targetDate !== selectedScheduleDate) selectedScheduleDate = targetDate;
+    renderDateStrip();
+    renderScheduleList();
+    renderList();
+    showToast(repeat ? 'Подію додано до щотижневого розкладу ✓' : 'Подію додано ✓');
+    return;
+  }
   if(repeat){
     const weekday = new Date(targetDate+'T00:00:00').getDay();
     templates.push({id: genId(), weekday, time, type, club, cap, substitution, startDate: targetDate});
