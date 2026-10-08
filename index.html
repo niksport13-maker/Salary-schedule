@@ -544,6 +544,7 @@
   .sa-mode .opt{flex:1; text-align:center; padding:6px 0; font-size:11.5px; font-weight:700; color:var(--muted); cursor:pointer; position:relative; z-index:1; transition:color .2s;}
   .sa-mode .opt.active{color:var(--amber);}
   .field .hint{font-size:11px; color:#555; margin-top:5px; line-height:1.4;}
+  .entry.event-row{border-color:#5EEAD455; background:#5EEAD40D;}
   .ev-pending{margin-left:auto; font-size:11.5px; color:var(--teal); font-weight:700; white-space:nowrap;}
   .ev-spacer{display:inline-block; width:24px; flex-shrink:0;}
   .ev-group{cursor:pointer;}
@@ -1362,6 +1363,7 @@ function renderScheduleList(){
     const repeatBadge = it.kind==='template' ? '<span class="repeat-badge">↻</span>' : '';
     const subBadge = it.substitution ? '<span class="sub-badge">Заміна</span>' : '';
     if(it.isEvent){
+      row.classList.add('event-row');
       const right = it.amount===null
         ? '<div class="ev-pending">Ввести суму</div>'
         : `<div class="money display">${it.amount.toLocaleString('uk-UA')}₴</div>`;
@@ -1763,6 +1765,7 @@ function renderTodayCalendar(){
   for(let d=1; d<=nDays; d++){
     const dateStr = monthKey+'-'+String(d).padStart(2,'0');
     const scheduleItems = getScheduleForDate(dateStr);
+    const evItems = getScheduleForDate(dateStr, true).filter(it=>it.isEvent);
     const filled = scheduleItems.filter(it=>it.entry);
     const unfilled = scheduleItems.filter(it=>!it.entry);
     const hasSub = scheduleItems.some(it=>it.substitution);
@@ -1775,7 +1778,7 @@ function renderTodayCalendar(){
 
     const cell = document.createElement('div');
     cell.className = 'cal-cell'+(isFullyUnfilled ? ' lvl-unfilled' : ' lvl-'+lvl)+(dateStr===today ? ' today' : '');
-    const dotsWrap = hasSub ? '<div style="display:flex; gap:3px;"><span class="sub-dot" style="width:4px; height:4px; border-radius:50%; background:var(--danger);"></span></div>' : '';
+    const dotsWrap = (hasSub || evItems.length) ? '<div style="display:flex; gap:3px;">'+(hasSub ? '<span class="sub-dot" style="width:4px; height:4px; border-radius:50%; background:var(--danger);"></span>' : '')+(evItems.length ? '<span style="width:4px; height:4px; border-radius:50%; background:var(--teal);"></span>' : '')+'</div>' : '';
     cell.innerHTML = '<span>'+d+'</span>' + dotsWrap;
 
     cell.addEventListener('click', ()=>{
@@ -1792,7 +1795,7 @@ function renderTodayCalendar(){
       cell.classList.add('selected');
       selectedCell = cell;
 
-      if(!scheduleItems.length){
+      if(!scheduleItems.length && !evItems.length){
         infoBox.innerHTML = `<b>${ddmmyyyy(dateStr)}</b><br>На цю дату немає запланованих тренувань`;
         return;
       }
@@ -1834,6 +1837,15 @@ function renderTodayCalendar(){
           </div>
         `;
       }).join('');
+
+      html += evItems.map(it=>`
+          <div class="cal-day-entry">
+            <div class="cdt">${it.time}</div>
+            <div class="cdmid">
+              <div class="cdtype">${escHtml(it.type)} <span style="color:var(--muted); font-weight:500;">· Подія</span></div>
+            </div>
+            ${it.amount===null ? '<div class="cdpay" style="color:var(--teal); font-size:12px;">Ввести суму</div>' : `<div class="cdpay">${it.amount.toLocaleString('uk-UA')}₴</div>`}
+          </div>`).join('');
 
       infoBox.innerHTML = html;
     });
@@ -3115,6 +3127,7 @@ function renderHeatmapCalendar(){
   for(let d=1; d<=nDays; d++){
     const dateStr = selectedStatsMonth+'-'+String(d).padStart(2,'0');
     const scheduleItems = getScheduleForDate(dateStr);
+    const evItems = getScheduleForDate(dateStr, true).filter(it=>it.isEvent);
     const filled = scheduleItems.filter(it=>it.entry);
     const unfilled = scheduleItems.filter(it=>!it.entry);
     const hasSub = scheduleItems.some(it=>it.substitution);
@@ -3127,7 +3140,7 @@ function renderHeatmapCalendar(){
 
     const cell = document.createElement('div');
     cell.className = 'cal-cell'+(isFullyUnfilled ? ' lvl-unfilled' : ' lvl-'+lvl)+(dateStr===today ? ' today' : '');
-    const dotsWrap = hasSub ? '<div style="display:flex; gap:3px;"><span class="sub-dot" style="width:4px; height:4px; border-radius:50%; background:var(--danger);"></span></div>' : '';
+    const dotsWrap = (hasSub || evItems.length) ? '<div style="display:flex; gap:3px;">'+(hasSub ? '<span class="sub-dot" style="width:4px; height:4px; border-radius:50%; background:var(--danger);"></span>' : '')+(evItems.length ? '<span style="width:4px; height:4px; border-radius:50%; background:var(--teal);"></span>' : '')+'</div>' : '';
     cell.innerHTML = '<span>'+d+'</span>' + dotsWrap;
 
     cell.addEventListener('click', ()=>{
@@ -3135,7 +3148,7 @@ function renderHeatmapCalendar(){
       cell.classList.add('selected');
       selectedCell = cell;
 
-      if(!scheduleItems.length){
+      if(!scheduleItems.length && !evItems.length){
         infoBox.innerHTML = `<b>${ddmmyyyy(dateStr)}</b><br>На цю дату немає запланованих тренувань`;
         return;
       }
@@ -3176,6 +3189,15 @@ function renderHeatmapCalendar(){
           </div>
         `;
       }).join('');
+
+      html += evItems.map(it=>`
+          <div class="cal-day-entry">
+            <div class="cdt">${it.time}</div>
+            <div class="cdmid">
+              <div class="cdtype">${escHtml(it.type)} <span style="color:var(--muted); font-weight:500;">· Подія</span></div>
+            </div>
+            ${it.amount===null ? '<div class="cdpay" style="color:var(--teal); font-size:12px;">Ввести суму</div>' : `<div class="cdpay">${it.amount.toLocaleString('uk-UA')}₴</div>`}
+          </div>`).join('');
 
       infoBox.innerHTML = html;
     });
