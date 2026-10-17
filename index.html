@@ -87,6 +87,9 @@
     height:2px; border-radius:2px;
     background:linear-gradient(90deg, var(--amber), transparent);
   }
+  .month-card.tappable{cursor:pointer; -webkit-tap-highlight-color:transparent; transition:transform .12s, border-color .15s;}
+  .month-card.tappable:active{transform:scale(.98); border-color:var(--teal);}
+  .month-card .month-chev{position:absolute; top:10px; right:11px; color:var(--teal); font-size:15px; line-height:1; opacity:.8;}
   .hero-card.month-card::after{background:linear-gradient(90deg, var(--teal), transparent);}
   .hero-label{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.1em; font-weight:600;}
   .hero-amount{font-size:30px; line-height:1.1; margin-top:4px; color:var(--text);}
@@ -742,7 +745,8 @@
       </div>
     </div>
 
-    <div class="hero-card month-card">
+    <div class="hero-card month-card tappable" id="curMonthCard">
+      <span class="month-chev">›</span>
       <div class="hero-label" id="curMonthLabel">Поточний місяць</div>
       <div class="hero-amount"><span id="curMonthEarnings">0</span><span class="unit">грн</span></div>
       <div class="stat-row">
@@ -2855,6 +2859,25 @@ function renderQuarterSummary(){
     strip.appendChild(chip);
   });
 }
+
+function buildMonthData(monthKey){
+  const mEntries = entries.filter(e=>e.date.startsWith(monthKey));
+  const mPaid = mEntries.filter(e=>e.cap);
+  const mSalary = mEntries.reduce((a,e)=>a+e.pay,0);
+  const mExtraSum = monthExtraTotal(monthKey);
+  const mm = Number(monthKey.slice(5,7));
+  return {
+    monthKey, name: MONTH_SHORT_UA[mm-1], salary: mSalary, extra: mExtraSum,
+    sum: mSalary+mExtraSum,
+    fill: mPaid.length ? Math.round((mPaid.reduce((a,e)=>a+(e.count/e.cap),0)/mPaid.length)*100) : null,
+    count: mEntries.length,
+    conducted: mEntries.filter(e=>e.count>0).length,
+    people: mEntries.reduce((a,e)=>a+(e.count||0),0)
+  };
+}
+document.getElementById('curMonthCard').addEventListener('click', ()=>{
+  openMonthDetail(buildMonthData(isoToday().slice(0,7)));
+});
 
 function openMonthDetail(m){
   const [y,mm] = m.monthKey.split('-');
