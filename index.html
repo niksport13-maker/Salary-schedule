@@ -556,6 +556,26 @@
   .sa-mode .opt.active{color:var(--amber);}
   .field .hint{font-size:11px; color:#555; margin-top:5px; line-height:1.4;}
   .entry.event-row{border-color:#5EEAD455; background:#5EEAD40D;}
+  .total-frame{background:var(--surface); border:1px solid var(--amber); border-radius:14px; padding:12px 14px; margin-bottom:10px;}
+  .total-frame .tf-main{display:flex; align-items:center; gap:12px;}
+  .total-frame .tf-main .mid{flex:1; min-width:0;}
+  .total-frame .tf-div{height:1px; background:var(--line); margin:11px 0 9px;}
+  .total-frame .evhead{display:flex; align-items:center; gap:8px; cursor:pointer; -webkit-tap-highlight-color:transparent; padding:2px 0;}
+  .total-frame .evhead .n{flex:1; font-size:13.5px; font-weight:600;}
+  .total-frame .evhead .n span{color:var(--muted); font-weight:500;}
+  .total-frame .evhead .s{font-family:'Oswald',sans-serif; font-size:16px; color:var(--teal);}
+  .total-frame .evhead .chev{color:var(--muted); font-size:13px; width:16px; text-align:center; transition:transform .2s;}
+  .total-frame .evhead.open .chev{transform:rotate(180deg);}
+  .total-frame .evlist{display:none; margin-top:4px; padding-left:10px; border-left:2px solid var(--line);}
+  .total-frame .evlist.open{display:block;}
+  .total-frame .ev{display:flex; align-items:center; gap:8px; padding:5px 0; font-size:13px;}
+  .total-frame .ev .n{flex:1; min-width:0;}
+  .total-frame .ev .n span{color:var(--muted);}
+  .total-frame .ev .s{font-family:'Oswald',sans-serif; font-size:14px; color:var(--teal); white-space:nowrap;}
+  .total-frame .ev .s.pend{font-family:'Inter',sans-serif; font-size:11.5px; font-weight:700;}
+  .total-frame .grand{display:flex; align-items:center; gap:10px; margin-top:10px; padding-top:10px; border-top:1px solid var(--amber);}
+  .total-frame .grand .t{flex:1; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;}
+  .total-frame .grand .val{font-size:24px; color:var(--amber);}
   .ev-pending{margin-left:auto; font-size:11.5px; color:var(--teal); font-weight:700; white-space:nowrap;}
   .ev-spacer{display:inline-block; width:24px; flex-shrink:0;}
   .ev-group{cursor:pointer;}
@@ -2520,11 +2540,74 @@ function renderMonthSubstitutions(){
   wrap.appendChild(createSubstitutionsButton());
 }
 
+function getEventGroupsForCurrentPeriod(){
+  if(currentPeriod!=='today' && currentPeriod!=='week') return [];
+  const dates = currentPeriod==='today' ? [selectedScheduleDate] : getPeriodDateRange('week');
+  const map = new Map();
+  dates.forEach(dateStr=>{
+    getScheduleForDate(dateStr, true).forEach(it=>{
+      if(!it.isEvent) return;
+      const key = it.type.trim().toLowerCase();
+      if(!map.has(key)) map.set(key, {title: it.type, count:0, sum:0, pending:0});
+      const g = map.get(key);
+      g.count++;
+      if(it.amount===null) g.pending++; else g.sum += it.amount;
+    });
+  });
+  return [...map.values()];
+}
+
+function buildEventsBlock(groups, trainTotal, mainRowEl){
+  const evCount = groups.reduce((a,g)=>a+g.count,0);
+  const evSum = groups.reduce((a,g)=>a+g.sum,0);
+  const frame = document.createElement('div');
+  frame.className = 'total-frame';
+  const main = document.createElement('div');
+  main.className = 'tf-main';
+  if(mainRowEl) main.appendChild(mainRowEl);
+  frame.appendChild(main);
+  if(mainRowEl){ const d = document.createElement('div'); d.className='tf-div'; frame.appendChild(d); }
+
+  const head = document.createElement('div');
+  head.className = 'evhead';
+  head.innerHTML = `<div class="n">Події <span>· ${evCount}</span></div><div class="s">+${evSum.toLocaleString('uk-UA')}₴</div><div class="chev">▾</div>`;
+  const listEl = document.createElement('div');
+  listEl.className = 'evlist';
+  groups.forEach(g=>{
+    const row = document.createElement('div');
+    row.className = 'ev';
+    let right;
+    if(g.pending===g.count) right = '<div class="s pend">Ввести суму</div>';
+    else right = `<div class="s">+${g.sum.toLocaleString('uk-UA')}₴${g.pending ? ' <span style="color:var(--muted); font-size:11px;">(+'+g.pending+' без суми)</span>' : ''}</div>`;
+    row.innerHTML = `<div class="n">${escHtml(g.title)} <span>· ${g.count}×</span></div>${right}`;
+    listEl.appendChild(row);
+  });
+  head.addEventListener('click', ()=>{
+    head.classList.toggle('open');
+    listEl.classList.toggle('open');
+  });
+  frame.appendChild(head);
+  frame.appendChild(listEl);
+
+  if(mainRowEl && evSum>0){
+    const grand = document.createElement('div');
+    grand.className = 'grand';
+    grand.innerHTML = `<div class="t">Загалом</div><div class="val display">${(trainTotal+evSum).toLocaleString('uk-UA')}₴</div>`;
+    frame.appendChild(grand);
+  }
+  return frame;
+}
+
 function renderClubStats(list, total){
   const box = document.getElementById('clubList');
   box.innerHTML='';
+  const evGroups = getEventGroupsForCurrentPeriod();
   if(!list.length){
-    box.innerHTML = '<div class="empty">Немає даних по клубах за цей період</div>';
+    if(evGroups.length){
+      box.appendChild(buildEventsBlock(evGroups, 0, null));
+    } else {
+      box.innerHTML = '<div class="empty">Немає даних по клубах за цей період</div>';
+    }
     return;
   }
   const showFill = currentPeriod==='month' || currentPeriod==='week' || currentPeriod==='today';
@@ -2581,7 +2664,16 @@ function renderClubStats(list, total){
     </div>
     <div class="money display" style="color:var(--amber)">${total.toLocaleString('uk-UA')}₴</div>
   `;
-  box.appendChild(totalRow);
+  if(evGroups.length){
+    // події є — підсумок і події в одній жовтій рамці
+    const inner = document.createElement('div');
+    inner.style.cssText = 'display:flex; align-items:center; gap:12px; width:100%;';
+    inner.innerHTML = totalRow.innerHTML;
+    inner.querySelector('.mid').style.cssText = 'flex:1; min-width:0;';
+    box.appendChild(buildEventsBlock(evGroups, total, inner));
+  } else {
+    box.appendChild(totalRow);
+  }
 }
 
 function getEventIncomeForMonth(yyyyMm){
